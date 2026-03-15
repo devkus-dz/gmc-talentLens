@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: talentlens-rustfs
+    # Force l'exécution en mode administrateur pour éviter les erreurs de permission sur Windows
+    user: root 
+    ports:
+      - "9000:9000" 
+      - "9001:9001" 
+    environment:
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: adminpassword
+      RUSTFS_CONSOLE_ENABLE: "true"
+    # LA CORRECTION : On donne juste le chemin du dossier, sans le mot "server"
+    command: /data 
+    volumes:
+      - ./storage:/data
+    restart: unless-stopped
