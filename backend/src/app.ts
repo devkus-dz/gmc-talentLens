@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 
 // importing Routes
 import authRoutes from './routes/authRoutes';
+import resumeRoutes from './routes/resumeRoutes';
 
 // .env variables
 dotenv.config();
@@ -41,6 +42,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/resumes', resumeRoutes);
 
 
 export default app;
