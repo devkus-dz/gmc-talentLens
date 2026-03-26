@@ -4,6 +4,7 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import JobOffer from '../models/JobOffer';
 import Resume from '../models/Resume';
 import { geminiService } from '../services/geminiService';
+import { notificationService } from '../services/notificationService';
 
 export const jobOfferController = {
     /**
@@ -18,8 +19,12 @@ export const jobOfferController = {
                 description,
                 minYearsOfExperience,
                 requiredSkills,
-                tags
+                tags,
+                createdBy: req.user?.id
             });
+
+            // Trigger notification generation asynchronously so we don't block the API response
+            notificationService.notifyMatchingCandidates(newJobOffer).catch(console.error);
 
             res.status(201).json({ message: 'Job offer created successfully', jobOffer: newJobOffer });
         } catch (error) {
@@ -266,6 +271,9 @@ export const jobOfferController = {
                 res.status(404).json({ message: 'Job offer or applicant not found.' });
                 return;
             }
+
+            // Trigger status notification asynchronously
+            notificationService.notifyStatusUpdate(candidateId as string, updatedJob.title, status).catch(console.error);
 
             res.status(200).json({ message: `Candidate moved to ${status}.` });
 

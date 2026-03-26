@@ -1,4 +1,4 @@
-# 🗺️ TalentLens API Routes Documentation
+# 🚀 TalentLens API Routes Documentation
 
 **Base URL:** `http://localhost:5000` (or your configured `PORT`)
 **Authentication:** All routes below require a valid JWT via an `HttpOnly` Cookie (`jwt`) OR an `Authorization: Bearer <token>` header.
@@ -40,6 +40,17 @@ Handles the core job board, Kanban tracking, and AI matching.
 | **GET** | `/api/jobs/applied` | `CANDIDATE` | Get all jobs the candidate has applied to (Dashboard view). |
 | **GET** | `/api/jobs/:id/applicants` | `RECRUITER`, `ADMIN` | Get all applicants + parsed AI resumes for the Kanban board. |
 | **PATCH** | `/api/jobs/:id/applicants/:candidateId/status`| `RECRUITER`, `ADMIN` | Update applicant Kanban status (JSON body: `status`). |
+
+---
+
+## 🔔 Notifications (`/api/notifications`)
+Handles system alerts for new job matches and application status updates.
+
+| Method | Endpoint | Access Role | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/api/notifications` | Any Logged In | Get paginated notifications and unread count. Accepts `?page`, `?limit`. |
+| **PATCH** | `/api/notifications/:id/read` | Any Logged In | Mark a specific notification as read. |
+| **PATCH** | `/api/notifications/read-all` | Any Logged In | Mark all unread notifications for the user as read. |
 
 ---
 

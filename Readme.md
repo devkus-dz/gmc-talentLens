@@ -35,8 +35,8 @@ Developed as a Master's degree final project (PFE), this SaaS platform is built 
 
 - Server Actions & API Routes (Next.js)
 - [MongoDB](https://www.mongodb.com/) (with Mongoose ORM)
-- [MinIO](https://min.io/) / AWS SDK v3 (S3-compatible secure object storage for CVs)
-- [Auth.js](https://authjs.dev/) (NextAuth v5 for secure authentication)
+- [RUSTFS](https://rustfs.com/) / AWS SDK v3 (S3-compatible secure object storage for CVs)
+- [JWT](https://jwt.dev/) (JWT http-only for secure authentication)
 
 **AI & Infrastructure:**
 

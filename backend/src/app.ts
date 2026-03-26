@@ -10,6 +10,7 @@ import resumeRoutes from './routes/resumeRoutes';
 import jobOfferRoutes from './routes/jobOfferRoutes';
 import userRoutes from './routes/userRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 
 // .env variables
@@ -50,6 +51,7 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/jobs', jobOfferRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 export default app;
