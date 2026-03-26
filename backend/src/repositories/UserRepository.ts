@@ -1,16 +1,14 @@
-// backend/src/repositories/UserRepository.ts
 import { BaseRepository } from './BaseRepository';
 import UserModel, { IUser } from '../models/User';
 
 class UserRepository extends BaseRepository<IUser> {
   constructor() {
-    // On passe le modèle Mongoose User au parent
+    // inheriting crud functions from BaseRepository
     super(UserModel);
   }
 
-  // --- OPÉRATIONS SPÉCIFIQUES À L'UTILISATEUR ---
+  // --- Adding more operations ---
 
-  // Exemple d'une fonction que seul le User possède
   async findByEmail(email: string): Promise<IUser | null> {
     return await this.model.findOne({ email });
   }
@@ -20,5 +18,5 @@ class UserRepository extends BaseRepository<IUser> {
   }
 }
 
-// On exporte une instance unique (Singleton) pour l'utiliser partout
+// exporting (Singleton) for User
 export const userRepository = new UserRepository();

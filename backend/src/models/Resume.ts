@@ -17,6 +17,7 @@ export interface IEducation {
 }
 
 export interface IResume extends Document {
+    improvementTip: any;
     id: any;
     userId: mongoose.Types.ObjectId;
     fileKey: string;
@@ -74,6 +75,7 @@ const ResumeSchema: Schema = new Schema(
         summary: { type: String, default: null },
         experiences: { type: [ExperienceSchema], default: [] },
         education: { type: [EducationSchema], default: [] },
+        improvementTip: { type: String, default: null },
     },
     {
         timestamps: true,

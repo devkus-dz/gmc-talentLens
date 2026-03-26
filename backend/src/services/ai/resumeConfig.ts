@@ -28,6 +28,7 @@ export interface Education {
  * The strictly typed output expected from the Gemini AI after parsing a CV.
  */
 export interface ParsedResumeData {
+    improvementTip: string;
     firstName: string | null;
     lastName: string | null;
     email: string | null;
@@ -99,7 +100,12 @@ export const resumeSchema: Schema = {
                     endDate: { type: SchemaType.STRING, description: "End Date", nullable: true },
                 }
             }
-        }
+        },
+        improvementTip: {
+            type: SchemaType.STRING,
+            description: "A 2-sentence actionable tip on how the candidate can improve their CV to be more competitive.",
+            nullable: true
+        },
     }
 };
 
@@ -118,4 +124,5 @@ CRITICAL RULES:
 4. MANDATORY SUMMARY: If the document does not contain an explicit professional summary or objective, you MUST write a highly professional 2-sentence summary summarizing their overall profile, years of experience, and core expertise. Write this summary in the original language of the CV.
 5. EXTRACT EVERYTHING: Read the entire text (or visually analyze the image) to extract the full work and education history exactly as written.
 6. TAG GENERATION: Generate 5 to 7 high-level tags categorizing their professional field, industry, and seniority (Tags should ideally be in English for database consistency, but the rest of the CV must remain in its original language).
+7. CV IMPROVEMENT TIP: Act as an expert HR advisor. Based on the candidate's extracted data, provide a 2-sentence actionable tip on how they can improve their CV to be more competitive (e.g., "Quantify your achievements in your latest role," or "Add more modern framework keywords to your skills"). Write this in the detected locale language.
 `;

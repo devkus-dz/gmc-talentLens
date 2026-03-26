@@ -7,15 +7,15 @@ import { resumeRepository } from '../repositories/ResumeRepository';
 
 /**
  * Controller handling resume (CV) upload and AI parsing operations.
- * @namespace resumeController
+ * * Execution Steps:
+ * 1. Validates the presence of the uploaded file buffer and user context.
+ * 2. Passes the file buffer to the Gemini service for data extraction and tip generation.
+ * 3. Uploads the raw PDF file to AWS S3 / MinIO.
+ * 4. Persists the AI-extracted data (including the improvement tip) to MongoDB.
+ * 5. Generates a pre-signed URL for document preview and returns the full payload.
+ * * @namespace resumeController
  */
 export const resumeController = {
-    /**
-     * Uploads a PDF to S3, parses it with Gemini AI, and saves the structured data to MongoDB.
-     * * @param {AuthRequest} req - The Express request object.
-     * @param {Response} res - The Express response object.
-     * @returns {Promise<void>}
-     */
     async upload(req: AuthRequest, res: Response): Promise<void> {
         try {
             if (!req.file || !req.file.buffer) {
@@ -33,15 +33,11 @@ export const resumeController = {
 
             console.log(`🚀 Processing file: ${originalName} (${fileBuffer.length} bytes)`);
 
-            // Parse AI Data to ensure buffer integrity
             const parsedAiData = await geminiService.parseResume(fileBuffer, mimeType);
-
-            // Upload to S3
             const fileKey = await s3Service.uploadResume(fileBuffer, originalName, mimeType);
 
             console.log('✅ AI Parsing and Upload Complete!');
 
-            // Save to MongoDB
             const newResume = await resumeRepository.create({
                 userId: req.user.id,
                 fileKey: fileKey,
@@ -54,6 +50,7 @@ export const resumeController = {
                 locale: parsedAiData.locale || 'en',
                 yearsOfExperience: parsedAiData.yearsOfExperience || 0,
                 summary: parsedAiData.summary || '',
+                improvementTip: parsedAiData.improvementTip || '',
                 experiences: parsedAiData.experiences || [],
                 education: parsedAiData.education || [],
             });
@@ -73,6 +70,7 @@ export const resumeController = {
                     locale: newResume.locale,
                     yearsOfExperience: newResume.yearsOfExperience,
                     summary: newResume.summary,
+                    improvementTip: newResume.improvementTip,
                     experiences: newResume.experiences,
                     education: newResume.education,
                 },

@@ -35,12 +35,12 @@ export const s3Service = {
      */
     async uploadResume(fileBuffer: Buffer, originalName: string, mimeType: string): Promise<string> {
         try {
-            // 1. Generate a secure, unique filename to prevent overwriting existing files
+            // Generate a secure, unique filename to prevent overwriting existing files
             const fileExtension = originalName.split('.').pop();
             const uniqueId = crypto.randomBytes(16).toString('hex');
             const fileKey = `candidates/${uniqueId}.${fileExtension}`;
 
-            // 2. Prepare the upload command
+            // Prepare the upload command
             const command = new PutObjectCommand({
                 Bucket: process.env.S3_BUCKET_NAME as string,
                 Key: fileKey,
@@ -48,7 +48,7 @@ export const s3Service = {
                 ContentType: mimeType,
             });
 
-            // 3. Send to RustFS
+            // Send to RustFS
             await s3Client.send(command);
 
             return fileKey;
@@ -79,5 +79,35 @@ export const s3Service = {
             console.error('S3 Presigned URL Error:', error);
             throw new Error('Failed to generate file URL.');
         }
-    }
+    },
+
+    /**
+     * Uploads a profile image buffer to the S3 bucket.
+     * @param {Buffer} fileBuffer - The binary data of the image.
+     * @param {string} originalName - The original name of the image.
+     * @param {string} mimeType - The MIME type (e.g., 'image/jpeg').
+     * @returns {Promise<string>} The unique key (filename) generated.
+     */
+    async uploadProfileImage(fileBuffer: Buffer, originalName: string, mimeType: string): Promise<string> {
+        try {
+            const fileExtension = originalName.split('.').pop();
+            const uniqueId = crypto.randomBytes(16).toString('hex');
+
+            // Notice the 'profile-images/' prefix to put it in the right "folder"
+            const fileKey = `profile-images/${uniqueId}.${fileExtension}`;
+
+            const command = new PutObjectCommand({
+                Bucket: process.env.S3_BUCKET_NAME as string,
+                Key: fileKey,
+                Body: fileBuffer,
+                ContentType: mimeType,
+            });
+
+            await s3Client.send(command);
+            return fileKey;
+        } catch (error) {
+            console.error('S3 Profile Image Upload Error:', error);
+            throw new Error('Failed to upload profile picture to storage.');
+        }
+    },
 };

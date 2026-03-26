@@ -1,4 +1,3 @@
-// src/routes/resumeRoutes.ts
 import { Router } from 'express';
 import { resumeController } from '../controllers/resumeController';
 import { protect } from '../middlewares/authMiddleware';
@@ -13,9 +12,9 @@ const router = Router();
  */
 router.post(
     '/upload',
-    protect, // 1. Check if user is logged in
-    uploadMiddleware.single('pdfFile'), // 2. Intercept the file named 'pdfFile' in the form data
-    resumeController.upload // 3. Execute the upload logic
+    protect, // Check if user is logged in
+    uploadMiddleware.single('pdfFile'), // Intercept the file named 'pdfFile' in the form data
+    resumeController.upload // Execute the upload logic
 );
 
 export default router;

@@ -148,7 +148,7 @@ export const geminiService = {
             const matchResults: MatchResult[] = JSON.parse(result.response.text());
 
             // Sort results highest to lowest score
-            return matchResults.sort((a, b) => b.matchScore - a.matchScore);
+            return matchResults.sort((a, b) => b.scores.overallScore - a.scores.overallScore);
 
         } catch (error) {
             console.error('Gemini AI Matching Error:', error);

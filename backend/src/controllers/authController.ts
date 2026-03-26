@@ -1,3 +1,4 @@
+// src/controllers/authController.ts
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -6,7 +7,7 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 
 /**
  * Generates a JSON Web Token for authenticated users.
- * * @param {string} userId - The unique identifier of the user.
+ * @param {string} userId - The unique identifier of the user.
  * @returns {string} The signed JWT.
  */
 const generateToken = (userId: string): string => {
@@ -22,13 +23,23 @@ const generateToken = (userId: string): string => {
 export const authController = {
     /**
      * Registers a new user, hashes their password, and sets an HttpOnly JWT cookie.
-     * * @param {Request} req - The Express request object containing user details in the body.
+     * Execution Steps:
+     * 1. Extracts the shared fields (email, password, role) and role-specific fields from the request.
+     * 2. Checks if the email is already registered in the database.
+     * 3. Hashes the user's password securely using bcrypt.
+     * 4. Dynamically builds the user payload, enforcing 'companyName' for Recruiters and 'firstName/lastName' for Candidates.
+     * 5. Saves the user to the database, generates a JWT, sets it in an HttpOnly cookie, and returns the full user object.
+     * * @param {Request} req - The Express request object.
      * @param {Response} res - The Express response object.
      * @returns {Promise<void>}
      */
     async register(req: Request, res: Response): Promise<void> {
         try {
-            const { email, password, firstName, lastName, role } = req.body;
+            const {
+                email, password, role,
+                firstName, lastName,
+                companyName, website, companyDescription
+            } = req.body;
 
             const existingUser = await userRepository.findOne({ email });
             if (existingUser) {
@@ -39,14 +50,31 @@ export const authController = {
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash(password, salt);
 
-            const newUser = await userRepository.create({
+            // Dynamically construct the payload to satisfy Mongoose Validation
+            const userData: any = {
                 email,
                 passwordHash,
-                firstName,
-                lastName,
                 role: role || 'CANDIDATE',
-            });
+            };
 
+            if (userData.role === 'RECRUITER') {
+                if (!companyName) {
+                    res.status(400).json({ message: 'Company Name is required for Recruiters.' });
+                    return;
+                }
+                userData.companyName = companyName;
+                userData.website = website;
+                userData.companyDescription = companyDescription;
+            } else {
+                if (!firstName || !lastName) {
+                    res.status(400).json({ message: 'First and Last name are required for Candidates.' });
+                    return;
+                }
+                userData.firstName = firstName;
+                userData.lastName = lastName;
+            }
+
+            const newUser = await userRepository.create(userData);
             const token = generateToken(newUser.id);
 
             res.cookie('jwt', token, {
@@ -64,6 +92,10 @@ export const authController = {
                     role: newUser.role,
                     firstName: newUser.firstName,
                     lastName: newUser.lastName,
+                    companyName: newUser.companyName,
+                    profilePictureUrl: newUser.profilePictureUrl,
+                    isLookingForJob: newUser.isLookingForJob,
+                    savedJobs: newUser.savedJobs || [],
                 },
             });
         } catch (error) {
@@ -74,6 +106,11 @@ export const authController = {
 
     /**
      * Authenticates a user, verifies credentials, and sets an HttpOnly JWT cookie.
+     * Execution Steps:
+     * 1. Finds the user by their email.
+     * 2. Compares the provided password against the stored bcrypt hash.
+     * 3. Generates a new JWT and attaches it to the response as an HttpOnly cookie.
+     * 4. Returns the sanitized user profile (including role-specific data) to the client.
      * * @param {Request} req - The Express request object containing email and password.
      * @param {Response} res - The Express response object.
      * @returns {Promise<void>}
@@ -111,6 +148,10 @@ export const authController = {
                     role: user.role,
                     firstName: user.firstName,
                     lastName: user.lastName,
+                    companyName: user.companyName,
+                    profilePictureUrl: user.profilePictureUrl,
+                    isLookingForJob: user.isLookingForJob,
+                    savedJobs: user.savedJobs || [],
                 },
             });
         } catch (error) {
@@ -120,15 +161,15 @@ export const authController = {
     },
 
     /**
-    * Logs out the user by clearing the JWT Http-Only cookie.
-    * * @param {Request} req - The Express request object.
-    * @param {Response} res - The Express response object.
-    * @returns {void}
-    */
+     * Logs out the user by clearing the JWT Http-Only cookie.
+     * @param {Request} req - The Express request object.
+     * @param {Response} res - The Express response object.
+     * @returns {void}
+     */
     logout(req: Request, res: Response): void {
         res.cookie('jwt', '', {
             httpOnly: true,
-            expires: new Date(0), // Set expiration date to the past to delete it
+            expires: new Date(0),
         });
 
         res.status(200).json({ message: 'Logged out successfully.' });
@@ -136,6 +177,9 @@ export const authController = {
 
     /**
      * Returns the currently authenticated user's data (Profile check).
+     * Execution Steps:
+     * 1. Checks if the `req.user` object was successfully populated by the authMiddleware.
+     * 2. Returns the complete sanitized user profile to restore frontend state on page reload.
      * * @param {AuthRequest} req - The extended Express request object containing the user.
      * @param {Response} res - The Express response object.
      * @returns {void}
@@ -153,6 +197,12 @@ export const authController = {
                 role: req.user.role,
                 firstName: req.user.firstName,
                 lastName: req.user.lastName,
+                companyName: req.user.companyName,
+                website: req.user.website,
+                companyDescription: req.user.companyDescription,
+                profilePictureUrl: req.user.profilePictureUrl,
+                isLookingForJob: req.user.isLookingForJob,
+                savedJobs: req.user.savedJobs || [],
             }
         });
     },
