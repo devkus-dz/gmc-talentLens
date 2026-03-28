@@ -59,8 +59,21 @@ router.patch(
  * @description Get all jobs the current candidate has applied to (Dashboard)
  * @access Private (Candidate)
  */
-// IMPORTANT: Place this BEFORE /:id/applicants so Express doesn't think "applied" is an ID!
 router.get('/applied', protect, jobOfferController.getMyApplications);
+
+/**
+ * @route PATCH /api/jobs/:id
+ * @description Update a job offer (Requires ownership and inactive status)
+ * @access Private (RECRUITER, ADMIN)
+ */
+router.patch('/:id', protect, restrictTo('RECRUITER', 'ADMIN'), jobOfferController.updateJobOffer);
+
+/**
+ * @route DELETE /api/jobs/:id
+ * @description Delete a job offer (Requires ownership and inactive status)
+ * @access Private (RECRUITER, ADMIN)
+ */
+router.delete('/:id', protect, restrictTo('RECRUITER', 'ADMIN'), jobOfferController.deleteJobOffer);
 
 
 export default router;

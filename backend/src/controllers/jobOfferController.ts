@@ -34,6 +34,97 @@ export const jobOfferController = {
     },
 
     /**
+     * Updates a job offer. 
+     * Business Rule: Cannot modify core details if the job is currently published (isActive: true), 
+     * unless the request is specifically to deactivate it.
+     * @param {AuthRequest} req - The Express request object containing updated fields.
+     * @param {Response} res - The Express response object.
+     * @returns {Promise<void>}
+     */
+    async updateJobOffer(req: AuthRequest, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
+            const jobOffer = await JobOffer.findById(id);
+
+            if (!jobOffer) {
+                res.status(404).json({ message: 'Job offer not found.' });
+                return;
+            }
+
+            // Security Check: Only the creator or an Admin can modify it
+            if (jobOffer.createdBy.toString() !== userId?.toString() && req.user?.role !== 'ADMIN') {
+                res.status(403).json({ message: 'Forbidden. You do not own this job offer.' });
+                return;
+            }
+
+            // Business Rule: If the job is active, the ONLY allowed update is deactivating it
+            const isTryingToDeactivate = req.body.isActive === false;
+
+            if (jobOffer.isActive && !isTryingToDeactivate) {
+                res.status(400).json({
+                    message: 'Cannot modify a published job offer. Please deactivate it first by sending { "isActive": false }.'
+                });
+                return;
+            }
+
+            const updatedJob = await JobOffer.findByIdAndUpdate(
+                id,
+                req.body,
+                { returnDocument: 'after' }
+            );
+
+            res.status(200).json({ message: 'Job offer updated successfully.', jobOffer: updatedJob });
+        } catch (error) {
+            console.error('Update Job Offer Error:', error);
+            res.status(500).json({ message: 'Internal server error while updating job offer.' });
+        }
+    },
+
+    /**
+     * Deletes a job offer.
+     * Business Rule: Cannot delete a job offer if it is currently published (isActive: true).
+     * @param {AuthRequest} req - The Express request object.
+     * @param {Response} res - The Express response object.
+     * @returns {Promise<void>}
+     */
+    async deleteJobOffer(req: AuthRequest, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
+            const jobOffer = await JobOffer.findById(id);
+
+            if (!jobOffer) {
+                res.status(404).json({ message: 'Job offer not found.' });
+                return;
+            }
+
+            // Security Check: Only the creator or an Admin can delete it
+            if (jobOffer.createdBy.toString() !== userId?.toString() && req.user?.role !== 'ADMIN') {
+                res.status(403).json({ message: 'Forbidden. You do not own this job offer.' });
+                return;
+            }
+
+            // Business Rule: Prevent deletion of active jobs
+            if (jobOffer.isActive) {
+                res.status(400).json({
+                    message: 'Cannot delete a published job offer. Please deactivate it first.'
+                });
+                return;
+            }
+
+            await JobOffer.findByIdAndDelete(id);
+
+            res.status(200).json({ message: 'Job offer permanently deleted.' });
+        } catch (error) {
+            console.error('Delete Job Offer Error:', error);
+            res.status(500).json({ message: 'Internal server error while deleting job offer.' });
+        }
+    },
+
+    /**
      * THE HYBRID MATCHING ALGORITHM
      * Finds the best candidates for a specific Job Offer using MongoDB + Gemini.
      */
