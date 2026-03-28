@@ -40,4 +40,19 @@ router.post('/logout', authController.logout);
 // Notice how we inject the 'protect' middleware before the controller method
 router.get('/me', protect, authController.getMe);
 
+/**
+ * @route POST /api/auth/forgot-password
+ * @description Generates a password reset token and sends an email.
+ * @access Public
+ */
+router.post('/forgot-password', authController.forgotPassword);
+
+/**
+ * @route PATCH /api/auth/reset-password/:token
+ * @description Resets the password using the provided secure token.
+ * @access Public
+ */
+router.patch('/reset-password/:token', authController.resetPassword);
+
+
 export default router;

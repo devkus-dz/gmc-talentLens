@@ -1,104 +1,173 @@
-// src/controllers/userController.ts
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import User from '../models/User';
+import User, { IUser } from '../models/User';
 import { s3Service } from '../services/s3Service';
 import { userRepository } from '../repositories/UserRepository';
+import { BaseController } from './BaseController'; // <-- Import the new BaseController
 
 /**
  * Controller handling user profile updates and interactions.
- * @namespace userController
+ * Inherits standard CRUD from BaseController.
+ * @class UserController
+ * @extends {BaseController<IUser>}
  */
-export const userController = {
+class UserController extends BaseController<IUser> {
+    deleteUser(arg0: string, protect: (req: AuthRequest, res: Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>, arg2: (req: AuthRequest, res: Response<any, Record<string, any>>, next: import("express").NextFunction) => void, deleteUser: any) {
+        throw new Error('Method not implemented.');
+    }
+    constructor() {
+        super(userRepository); // Pass the UserRepository to the BaseController
+    }
+
+    // ==========================================
+    // OVERRIDDEN CRUD METHODS (Security Filters)
+    // ==========================================
+
     /**
-     * Uploads and updates a user's profile picture or company logo.
-     * * Execution Steps:
-     * 1. Validates the existence of the image file in the request.
-     * 2. Uploads the image buffer to the S3 bucket using the S3 service.
-     * 3. Retrieves the permanent file key for the image.
-     * 4. Updates the User document in MongoDB with the new key.
-     * * @param {AuthRequest} req - The Express request object containing the file and authenticated user.
-     * @param {Response} res - The Express response object.
-     * @returns {Promise<void>}
+     * Retrieves a paginated list of all users.
+     * Overridden to strip passwords and handle role filtering.
      */
-    async uploadProfilePicture(req: AuthRequest, res: Response): Promise<void> {
+    getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            if (!req.file) {
-                res.status(400).json({ message: 'No image file provided.' });
-                return;
-            }
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 10;
+            const role = req.query.role as string;
 
-            // Guard clause to ensure the user is authenticated
-            if (!req.user || !req.user.id) {
-                res.status(401).json({ message: 'Unauthorized. User ID missing.' });
-                return;
-            }
+            const filter: any = {};
+            if (role) filter.role = role.toUpperCase();
 
-            const fileKey = await s3Service.uploadProfileImage(
-                req.file.buffer,
-                req.file.originalname,
-                req.file.mimetype
-            );
+            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 });
 
-            const userId = req.user.id;
-            await User.findByIdAndUpdate(userId, { profilePictureKey: fileKey });
-
-            res.status(200).json({
-                message: 'Profile picture uploaded successfully!',
-                fileKey: fileKey
+            // Strip passwords
+            const safeData = result.data.map(user => {
+                const userObj = user.toObject();
+                delete userObj.passwordHash;
+                return userObj;
             });
 
+            res.status(200).json({ ...result, data: safeData });
         } catch (error) {
-            console.error('Controller Error:', error);
-            res.status(500).json({ message: 'An internal error occurred during upload.' });
+            console.error('Fetch Users Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
         }
-    },
+    };
 
     /**
-     * Toggles the candidate's 'Open to Work' status.
-     * * Execution Steps:
-     * 1. Extracts the boolean status from the request body.
-     * 2. Updates the `isLookingForJob` field for the authenticated user.
-     * 3. Returns the updated user profile without the password hash.
-     * * @param {AuthRequest} req - The Express request object containing the new status.
-     * @param {Response} res - The Express response object.
-     * @returns {Promise<void>}
+     * Retrieves a single user by ID.
+     * Overridden to strip the password hash.
      */
-    async toggleJobStatus(req: AuthRequest, res: Response): Promise<void> {
+    getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            const { isLookingForJob } = req.body;
+            const { id } = req.params;
+            const user = await this.repository.findById(id as string);
 
-            if (typeof isLookingForJob !== 'boolean') {
-                res.status(400).json({ message: 'Invalid status provided. Must be a boolean.' });
+            if (!user) {
+                res.status(404).json({ message: 'User not found.' });
                 return;
             }
 
-            const updatedUser = await User.findByIdAndUpdate(
-                req.user?.id,
-                { isLookingForJob },
-                { new: true }
-            ).select('-passwordHash');
+            const userObj = user.toObject();
+            delete userObj.passwordHash;
 
-            res.status(200).json({ message: 'Job search status updated.', user: updatedUser });
+            res.status(200).json(userObj);
         } catch (error) {
-            console.error('Job Status Update Error:', error);
+            console.error('Get User By ID Error:', error);
             res.status(500).json({ message: 'Internal server error.' });
         }
-    },
+    };
 
     /**
-     * Adds or removes a Job Offer ID from the user's saved jobs array.
-     * * Execution Steps:
-     * 1. Finds the authenticated user in the database.
-     * 2. Initializes the `savedJobs` array if dealing with a legacy user document.
-     * 3. Checks if the provided Job ID already exists in the array.
-     * 4. If it exists, removes it (unsave). If it doesn't exist, adds it (save).
-     * 5. Persists the changes to MongoDB and returns the updated array.
-     * * @param {AuthRequest} req - The Express request object containing the job ID in params.
-     * @param {Response} res - The Express response object.
-     * @returns {Promise<void>}
+     * Updates a user's basic information (Admin override).
+     * Overridden to prevent accidental password or role updates.
      */
-    async toggleSavedJob(req: AuthRequest, res: Response): Promise<void> {
+    updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+
+            const updateData = { ...req.body };
+            delete updateData.passwordHash; // Protect password
+            delete updateData.role;         // Protect role
+
+            const updatedUser = await this.repository.update(id as string, updateData);
+
+            if (!updatedUser) {
+                res.status(404).json({ message: 'User not found.' });
+                return;
+            }
+
+            const userObj = updatedUser.toObject();
+            delete userObj.passwordHash;
+
+            res.status(200).json({ message: 'User updated successfully.', user: userObj });
+        } catch (error) {
+            console.error('Update User Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
+        }
+    };
+
+    // ==========================================
+    // CUSTOM METHODS (Specific to User Logic)
+    // ==========================================
+
+    /**
+     * Toggles a user's active status (Activate / Deactivate).
+     */
+    toggleUserStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+            const user = await this.repository.findById(id as string);
+
+            if (!user) {
+                res.status(404).json({ message: 'User not found.' });
+                return;
+            }
+
+            const newStatus = !user.isActive;
+            await this.repository.update(id as string, { isActive: newStatus });
+
+            res.status(200).json({ message: newStatus ? 'User activated.' : 'User deactivated.', isActive: newStatus });
+        } catch (error) {
+            console.error('Toggle Status Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
+        }
+    };
+
+    // ==========================================
+    // CANDIDATE METHODS (Restored Logic)
+    // ==========================================
+
+    /**
+     * Retrieves the full details of all job offers the candidate has saved.
+     */
+    getSavedJobs = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            // We use the raw User model here because we need Mongoose's powerful .populate()
+            const user = await User.findById(req.user?.id)
+                .populate({
+                    path: 'savedJobs',
+                    select: '-applicants' // Hide other applicants' data
+                })
+                .lean();
+
+            if (!user) {
+                res.status(404).json({ message: 'User not found.' });
+                return;
+            }
+
+            res.status(200).json({
+                totalSaved: user.savedJobs?.length || 0,
+                savedJobs: user.savedJobs || []
+            });
+        } catch (error) {
+            console.error('Fetch Saved Jobs Error:', error);
+            res.status(500).json({ message: 'Internal server error while fetching saved jobs.' });
+        }
+    };
+
+    /**
+     * Toggles saving or unsaving a job offer.
+     */
+    toggleSavedJob = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { jobId } = req.params;
             const user = await User.findById(req.user?.id);
@@ -130,17 +199,71 @@ export const userController = {
             console.error('Saved Job Toggle Error:', error);
             res.status(500).json({ message: 'Internal server error.' });
         }
-    },
+    };
 
     /**
-     * Retrieves the authenticated user's profile and generates pre-signed URLs for their files.
-     * @param {AuthRequest} req - The Express request object.
-     * @param {Response} res - The Express response object.
-     * @returns {Promise<void>}
+     * Toggles the candidate's 'Open to Work' status.
      */
-    async getUserProfile(req: AuthRequest, res: Response): Promise<void> {
+    toggleJobStatus = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            // Fetch the user without exposing the password hash
+            const { isLookingForJob } = req.body;
+
+            if (typeof isLookingForJob !== 'boolean') {
+                res.status(400).json({ message: 'Invalid status provided. Must be a boolean.' });
+                return;
+            }
+
+            const updatedUser = await User.findByIdAndUpdate(
+                req.user?.id,
+                { isLookingForJob },
+                { returnDocument: 'after' } // Updated to use modern Mongoose syntax
+            ).select('-passwordHash');
+
+            res.status(200).json({ message: 'Job search status updated.', user: updatedUser });
+        } catch (error) {
+            console.error('Job Status Update Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
+        }
+    };
+
+    /**
+     * Uploads and updates a user's profile picture.
+     */
+    uploadProfilePicture = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            if (!req.file) {
+                res.status(400).json({ message: 'No image file provided.' });
+                return;
+            }
+
+            if (!req.user || !req.user.id) {
+                res.status(401).json({ message: 'Unauthorized. User ID missing.' });
+                return;
+            }
+
+            const fileKey = await s3Service.uploadProfileImage(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype
+            );
+
+            await this.repository.update(req.user.id, { profilePictureUrl: fileKey });
+
+            res.status(200).json({
+                message: 'Profile picture uploaded successfully!',
+                fileKey: fileKey
+            });
+        } catch (error) {
+            console.error('Controller Error:', error);
+            res.status(500).json({ message: 'An internal error occurred during upload.' });
+        }
+    };
+
+    /**
+     * Retrieves the authenticated user's profile.
+     */
+    getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
             const user = await User.findById(req.user?.id).select('-passwordHash');
 
             if (!user) {
@@ -148,14 +271,12 @@ export const userController = {
                 return;
             }
 
-            // Convert the Mongoose document to a plain JS object
             const userProfile = user.toObject();
 
-            // Generate a pre-signed URL if the user has a profile picture
             if (userProfile.profilePictureUrl) {
                 userProfile.profilePictureUrl = await s3Service.getPresignedUrl(
                     userProfile.profilePictureUrl,
-                    3600 // URL valid for 1 hour
+                    3600
                 );
             }
 
@@ -164,78 +285,8 @@ export const userController = {
             console.error('Fetch Profile Error:', error);
             res.status(500).json({ message: 'Failed to retrieve user profile.' });
         }
-    },
+    };
+}
 
-    /**
-     * Retrieves a paginated list of all users.
-     * @access Private (ADMIN only)
-     * * @param {AuthRequest} req - The Express request object.
-     * @param {Response} res - The Express response object.
-     * @returns {Promise<void>}
-     */
-    async getAllUsers(req: AuthRequest, res: Response): Promise<void> {
-        try {
-            const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 10;
-            const role = req.query.role as string; // Optional: filter by role
-
-            const filter: any = {};
-            if (role) {
-                filter.role = role.toUpperCase();
-            }
-
-            // We use the new BaseRepository method via userRepository!
-            const result = await userRepository.findPaginated(
-                filter,
-                page,
-                limit,
-                { createdAt: -1 }, // Sort newest first
-                // don't populate anything heavy here to keep the admin list fast
-            );
-
-            // Strip passwordHashes from the result before sending to frontend
-            const safeData = result.data.map(user => {
-                const userObj = user.toObject();
-                delete userObj.passwordHash;
-                return userObj;
-            });
-
-            res.status(200).json({
-                ...result,
-                data: safeData // Replace the data array with the safe version
-            });
-        } catch (error) {
-            console.error('Fetch Users Error:', error);
-            res.status(500).json({ message: 'Internal server error while fetching users.' });
-        }
-    },
-
-    /**
-     * Retrieves the full details of all job offers the candidate has saved.
-     * @access Private (Candidate)
-     */
-    async getSavedJobs(req: AuthRequest, res: Response): Promise<void> {
-        try {
-            // Fetch the user and populate the savedJobs array
-            const user = await User.findById(req.user?.id)
-                .populate({
-                    path: 'savedJobs',
-                    select: '-applicants' // Don't send other people's application data to the candidate!
-                })
-                .lean();
-
-            if (!user) {
-                res.status(404).json({ message: 'User not found.' });
-                return;
-            }
-
-            res.status(200).json({
-                totalSaved: user.savedJobs?.length || 0,
-                savedJobs: user.savedJobs || []
-            });
-        } catch (error) {
-            console.error('Fetch Saved Jobs Error:', error);
-            res.status(500).json({ message: 'Internal server error while fetching saved jobs.' });
-        }
-    },
-};
+// Export a single instantiated instance of the class
+export const userController = new UserController();

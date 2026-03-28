@@ -139,7 +139,7 @@ export const jobOfferController = {
      */
     async applyForJob(req: AuthRequest, res: Response): Promise<void> {
         try {
-            const { id: jobId } = req.params; // Get Job ID from the URL
+            const { id: jobId } = req.params;
             const candidateId = req.user?.id;
 
             if (!candidateId) {
@@ -161,7 +161,7 @@ export const jobOfferController = {
 
             // Check if the candidate is already in the applicants array
             const alreadyApplied = jobOffer.applicants.some(
-                (applicant) => applicant.candidate.toString() === candidateId
+                (applicant) => applicant.candidate.toString() === candidateId.toString()
             );
 
             if (alreadyApplied) {
@@ -169,14 +169,20 @@ export const jobOfferController = {
                 return;
             }
 
-            // Push the new application to the array
-            jobOffer.applicants.push({
-                candidate: candidateId as any,
-                status: 'Applied',
-                appliedAt: new Date()
-            });
-
-            await jobOffer.save();
+            // Perform an atomic update using $push instead of loading and calling .save()
+            // This bypasses full document validation (ignoring old corrupted data) and prevents race conditions!
+            await JobOffer.findByIdAndUpdate(
+                jobId,
+                {
+                    $push: {
+                        applicants: {
+                            candidate: candidateId,
+                            status: 'Applied',
+                            appliedAt: new Date()
+                        }
+                    }
+                }
+            );
 
             res.status(200).json({
                 message: 'Successfully applied for the job!',
@@ -244,7 +250,7 @@ export const jobOfferController = {
     },
 
     /**
-     * Updates an applicant's status in the Kanban board (e.g., drag and drop).
+     * Updates an applicant's status in the Kanban board (drag and drop).
      * @access Private (Recruiter)
      */
     async updateApplicantStatus(req: AuthRequest, res: Response): Promise<void> {

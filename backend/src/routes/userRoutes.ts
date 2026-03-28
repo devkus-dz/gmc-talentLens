@@ -6,6 +6,9 @@ import { uploadMiddleware } from '../middlewares/uploadMiddleware';
 
 const router = Router();
 
+// ==========================================
+// 1. STATIC & SPECIFIC ROUTES (Must go first)
+// ==========================================
 
 /**
  * @route GET /api/users
@@ -15,8 +18,15 @@ const router = Router();
 router.get('/', protect, restrictTo('ADMIN'), userController.getAllUsers);
 
 /**
+ * @route GET /api/users/saved-jobs
+ * @description Get the full job details for all saved jobs
+ * @access Private (Candidate)
+ */
+router.get('/saved-jobs', protect, userController.getSavedJobs);
+
+/**
  * Uploads a profile picture or company logo (JPEG/PNG/WEBP).
- * * @name PUT /profile-picture
+ * @name PUT /profile-picture
  * @function
  * @memberof module:routers/users
  * @inner
@@ -34,7 +44,7 @@ router.put(
 
 /**
  * Updates the 'Open to Work' status for candidates.
- * * @name PATCH /status
+ * @name PATCH /status
  * @function
  * @memberof module:routers/users
  * @inner
@@ -46,7 +56,7 @@ router.patch('/status', protect, userController.toggleJobStatus);
 
 /**
  * Toggles saving or unsaving a job offer.
- * * @name PATCH /saved-jobs/:jobId
+ * @name PATCH /saved-jobs/:jobId
  * @function
  * @memberof module:routers/users
  * @inner
@@ -56,11 +66,38 @@ router.patch('/status', protect, userController.toggleJobStatus);
  */
 router.patch('/saved-jobs/:jobId', protect, userController.toggleSavedJob);
 
+
+// ==========================================
+// 2. DYNAMIC ID ROUTES (Must go last)
+// ==========================================
+
 /**
- * @route GET /api/users/saved-jobs
- * @description Get the full job details for all saved jobs
- * @access Private (Candidate)
+ * @route GET /api/users/:id
+ * @description Get a single user by ID
+ * @access Private (ADMIN)
  */
-router.get('/saved-jobs', protect, userController.getSavedJobs);
+router.get('/:id', protect, restrictTo('ADMIN'), userController.getUserById);
+
+/**
+ * @route PATCH /api/users/:id
+ * @description Update a user's basic information
+ * @access Private (ADMIN)
+ */
+router.patch('/:id', protect, restrictTo('ADMIN'), userController.updateUser);
+
+/**
+ * @route DELETE /api/users/:id
+ * @description Permanently delete a user from the database
+ * @access Private (ADMIN)
+ */
+router.delete('/:id', protect, restrictTo('ADMIN'), userController.delete);
+
+/**
+ * @route PATCH /api/users/:id/toggle-active
+ * @description Activate or deactivate a user account
+ * @access Private (ADMIN)
+ */
+router.patch('/:id/toggle-active', protect, restrictTo('ADMIN'), userController.toggleUserStatus);
+
 
 export default router;

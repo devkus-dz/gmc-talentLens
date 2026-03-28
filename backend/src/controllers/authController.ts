@@ -2,8 +2,10 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { userRepository } from '../repositories/UserRepository';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { emailService } from '../services/emailService';
 
 /**
  * Generates a JSON Web Token for authenticated users.
@@ -125,11 +127,12 @@ export const authController = {
                 return;
             }
 
-            const isMatch = await bcrypt.compare(password, user.passwordHash);
-            if (!isMatch) {
-                res.status(401).json({ message: 'Invalid email or password.' });
+            if (user.isActive === false) {
+                res.status(403).json({ message: 'This account has been deactivated. Please contact support.' });
                 return;
             }
+
+            const isMatch = await bcrypt.compare(password, user.passwordHash);
 
             const token = generateToken(user.id);
 
@@ -205,5 +208,78 @@ export const authController = {
                 savedJobs: req.user.savedJobs || [],
             }
         });
+    },
+
+    /**
+     * Initiates the password recovery flow by generating a secure token and emailing it.
+     * @param {Request} req - The Express request object containing the user's email.
+     * @param {Response} res - The Express response object.
+     * @returns {Promise<void>}
+     */
+    async forgotPassword(req: Request, res: Response): Promise<void> {
+        try {
+            const { email } = req.body;
+            const user = await userRepository.findOne({ email });
+
+            if (!user) {
+                res.status(404).json({ message: 'No user found with that email address.' });
+                return;
+            }
+
+            const resetToken = crypto.randomBytes(32).toString('hex');
+            const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+            await userRepository.update(user.id, {
+                resetPasswordToken: hashedToken,
+                resetPasswordExpires: Date.now() + 3600000 // 1 Hour
+            });
+
+            const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+            await emailService.sendPasswordResetEmail(user.email, resetUrl);
+
+            res.status(200).json({ message: 'Password reset link sent to your email.' });
+        } catch (error) {
+            console.error('Forgot Password Error:', error);
+            res.status(500).json({ message: 'Internal server error during password reset request.' });
+        }
+    },
+
+    /**
+     * Validates the reset token and updates the user's password.
+     * @param {Request} req - The Express request object containing the token (params) and new password (body).
+     * @param {Response} res - The Express response object.
+     * @returns {Promise<void>}
+     */
+    async resetPassword(req: Request, res: Response): Promise<void> {
+        try {
+            const { token } = req.params;
+            const { newPassword } = req.body;
+
+            const hashedToken = crypto.createHash('sha256').update(token as string).digest('hex');
+
+            const user = await userRepository.findOne({
+                resetPasswordToken: hashedToken,
+                resetPasswordExpires: { $gt: Date.now() }
+            });
+
+            if (!user) {
+                res.status(400).json({ message: 'Invalid or expired password reset token.' });
+                return;
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(newPassword, salt);
+
+            await userRepository.update(user.id, {
+                passwordHash: passwordHash,
+                $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 } // Clears the fields
+            });
+
+            res.status(200).json({ message: 'Password has been successfully reset. You can now log in.' });
+        } catch (error) {
+            console.error('Reset Password Error:', error);
+            res.status(500).json({ message: 'Internal server error during password reset.' });
+        }
     },
 };

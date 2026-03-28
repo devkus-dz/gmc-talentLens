@@ -4,22 +4,27 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import { s3Service } from '../services/s3Service';
 import { geminiService } from '../services/geminiService';
 import { resumeRepository } from '../repositories/ResumeRepository';
+import { BaseController } from './BaseController';
+import { IResume } from '../models/Resume';
 
 /**
- * Controller handling resume (CV) upload and AI parsing operations.
- * * Execution Steps:
- * 1. Validates the presence of the uploaded file buffer and user context.
- * 2. Passes the file buffer to the Gemini service for data extraction and tip generation.
- * 3. Uploads the raw PDF file to AWS S3 / MinIO.
- * 4. Persists the AI-extracted data (including the improvement tip) to MongoDB.
- * 5. Generates a pre-signed URL for document preview and returns the full payload.
- * * @namespace resumeController
+ * Controller handling resume (CV) upload, parsing, and data updates.
+ * Inherits standard CRUD from BaseController.
+ * @class ResumeController
+ * @extends {BaseController<IResume>}
  */
-export const resumeController = {
-    async upload(req: AuthRequest, res: Response): Promise<void> {
+class ResumeController extends BaseController<IResume> {
+    constructor() {
+        super(resumeRepository);
+    }
+
+    /**
+     * Uploads a resume, parses it via Gemini AI, and saves the data to MongoDB.
+     */
+    upload = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             if (!req.file || !req.file.buffer) {
-                res.status(400).json({ message: 'No file buffer detected. Check your multer storage configuration.' });
+                res.status(400).json({ message: 'No file buffer detected. Check your multer configuration.' });
                 return;
             }
             if (!req.user) {
@@ -60,20 +65,7 @@ export const resumeController = {
             res.status(201).json({
                 message: 'Resume successfully uploaded and analyzed by AI.',
                 resumeId: newResume.id,
-                parsedData: {
-                    firstName: newResume.firstName,
-                    lastName: newResume.lastName,
-                    email: newResume.email,
-                    phone: newResume.phone,
-                    skills: newResume.skills,
-                    tags: newResume.tags,
-                    locale: newResume.locale,
-                    yearsOfExperience: newResume.yearsOfExperience,
-                    summary: newResume.summary,
-                    improvementTip: newResume.improvementTip,
-                    experiences: newResume.experiences,
-                    education: newResume.education,
-                },
+                parsedData: newResume,
                 documentUrl: previewUrl,
             });
 
@@ -81,5 +73,70 @@ export const resumeController = {
             console.error('Resume Processing Error:', error);
             res.status(500).json({ message: 'Internal server error while processing the resume.' });
         }
-    },
-};
+    };
+
+    /**
+     * Retrieves the latest parsed resume for the currently authenticated candidate.
+     */
+    getMyResume = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const userId = req.user?.id;
+
+            // Fetch the user's resumes, sort by newest first, and take the top 1
+            const resumes = await resumeRepository.findPaginated({ userId }, 1, 1, { createdAt: -1 });
+
+            if (!resumes.data || resumes.data.length === 0) {
+                res.status(404).json({ message: 'No resume found for this user.' });
+                return;
+            }
+
+            res.status(200).json(resumes.data[0]);
+        } catch (error) {
+            console.error('Fetch My Resume Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
+        }
+    };
+
+    /**
+     * Updates specific fields of a parsed resume (e.g., adding a new experience).
+     * Includes an ownership security check.
+     */
+    updateResume = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
+            // Fetch the existing resume to verify ownership
+            const existingResume = await resumeRepository.findById(id as string);
+
+            if (!existingResume) {
+                res.status(404).json({ message: 'Resume not found.' });
+                return;
+            }
+
+            // Security Check: Only the owner (or an Admin) can edit the resume
+            if (existingResume.userId.toString() !== userId?.toString() && req.user?.role !== 'ADMIN') {
+                res.status(403).json({ message: 'Forbidden. You do not own this resume.' });
+                return;
+            }
+
+            // Prevent overriding critical system fields
+            const updateData = { ...req.body };
+            delete updateData.userId;
+            delete updateData.fileKey;
+
+            // Perform the update
+            const updatedResume = await resumeRepository.update(id as string, updateData);
+
+            res.status(200).json({
+                message: 'Resume updated successfully.',
+                resume: updatedResume
+            });
+        } catch (error) {
+            console.error('Update Resume Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
+        }
+    };
+}
+
+export const resumeController = new ResumeController();
