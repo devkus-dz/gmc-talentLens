@@ -1,15 +1,23 @@
 {
   "compilerOptions": {
-    "target": "es2022",                                  /* Version moderne de JS */
-    "module": "commonjs",                                /* Standard pour Node.js */
-    "rootDir": "./src",                                  /* Dossier source de ton code */
-    "outDir": "./dist",                                  /* Dossier où ira le code compilé */
-    "esModuleInterop": true,                             /* Permet d'importer des modules CommonJS plus facilement */
-    "forceConsistentCasingInFileNames": true,            /* Sécurité pour les noms de fichiers (Windows vs Linux) */
-    "strict": true,                                      /* Active toutes les vérifications strictes de TS */
-    "skipLibCheck": true,                                /* Accélère la compilation en ignorant les fichiers de définition externes */
-    "types": ["node"]                                   
+    "target": "es2022", /* Version moderne de JS */
+    "module": "commonjs", /* Standard pour Node.js */
+    "rootDir": "./src", /* Dossier source de ton code */
+    "outDir": "./dist", /* Dossier où ira le code compilé */
+    "esModuleInterop": true, /* Permet d'importer des modules CommonJS plus facilement */
+    "forceConsistentCasingInFileNames": true, /* Sécurité pour les noms de fichiers (Windows vs Linux) */
+    "strict": true, /* Active toutes les vérifications strictes de TS */
+    "skipLibCheck": true, /* Accélère la compilation en ignorant les fichiers de définition externes */
+    "types": [
+      "node",
+      "jest"
+    ]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
 }
