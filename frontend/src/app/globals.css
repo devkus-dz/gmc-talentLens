@@ -1,26 +1,56 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* ========================================
+  THE COGNITIVE LENS: Global Overrides
+  ========================================
+*/
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    /* Set the background to the DaisyUI base-100 color */
+    @apply bg-base-100 text-base-content antialiased;
+  }
+
+  /* Enforce the "No-Line" Rule */
+  hr {
+    @apply hidden;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* The "Glass & Gradient" Primary Accent */
+  .bg-glass-panel {
+    @apply bg-base-100/70 backdrop-blur-xl border border-base-content/5 shadow-[0_20px_40px_-10px_rgba(17,28,45,0.08)];
+  }
+
+  .text-gradient-primary {
+    @apply bg-linear-to-br from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  /* Hides scrollbar but keeps functionality for Kanban boards */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  /* Custom sleek scrollbar for the Kanban Board */
+  .thin-scrollbar::-webkit-scrollbar {
+    height: 8px; /* Horizontal scrollbar height */
+  }
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent; 
+  }
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: oklch(var(--bc) / 0.15); /* Subtle color based on theme */
+    border-radius: 20px;
+  }
+  .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: oklch(var(--bc) / 0.3); /* Darkens slightly on hover */
+  }
 }
