@@ -7,3 +7,6 @@ node_modules
 storage/
 .rustfs.sys/
 talenlens-storage/
+node_modules
+.env
+storage
