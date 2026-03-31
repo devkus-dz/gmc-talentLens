@@ -1,1 +1,9 @@
 docker-compose.yml
+node_modules
+.env
+.vscode
+
+# Local Storage / RustFS
+storage/
+.rustfs.sys/
+talenlens-storage/
