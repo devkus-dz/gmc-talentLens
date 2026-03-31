@@ -1,83 +1,73 @@
-// src/app/recruiter/jobs/page.tsx
-import React from 'react';
+"use client";
+
+import React, { useState } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import JobCard, { JobCardProps } from '@/components/ui/JobCard';
+
+const MOCK_JOBS: JobCardProps[] = [
+    { id: '1', title: 'Senior Product Designer', department: 'Engineering', location: 'Remote', createdAt: 'Oct 12', status: 'Published', stats: { applied: 42, interview: 8, offered: 1 } },
+    { id: '2', title: 'Frontend Engineer', department: 'Engineering', location: 'New York (Hybrid)', createdAt: 'Oct 20', status: 'Draft', stats: { applied: 0, interview: 0, offered: 0 } },
+    // Added a Closed Job!
+    { id: '3', title: 'Marketing Director', department: 'Marketing', location: 'London, UK', createdAt: 'Sep 05', status: 'Closed', stats: { applied: 124, interview: 12, offered: 1 } }
+];
 
 export default function ManageJobs() {
+    const [jobs, setJobs] = useState(MOCK_JOBS);
+    const [activeTab, setActiveTab] = useState<'All' | 'Published' | 'Draft' | 'Closed'>('All');
+
+    const handleChangeStatus = (id: string, newStatus: 'Published' | 'Draft' | 'Closed') => {
+        setJobs(prev => prev.map(job => job.id === id ? { ...job, status: newStatus } : job));
+    };
+
+    // Filter jobs based on the active tab
+    const displayedJobs = jobs.filter(job => activeTab === 'All' || job.status === activeTab);
+
+    // Helper for tab styling
+    const getTabClass = (tabName: string) =>
+        `pb-1 transition-colors ${activeTab === tabName ? 'text-primary border-b-2 border-primary font-bold' : 'text-base-content/50 hover:text-base-content'}`;
+
     return (
         <div className="flex flex-col gap-6 max-w-[1200px] mx-auto w-full animate-fade-in p-2">
+            <PageHeader
+                title="Manage Jobs"
+                description="Create, edit, and publish your job openings."
+                action={
+                    <button className="btn btn-primary rounded-xl shadow-md bg-linear-to-r from-primary to-secondary border-none w-full sm:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Post New Job
+                    </button>
+                }
+            />
 
-            {/* 1. Header & Actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-base-content/10 pb-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Manage Jobs</h1>
-                    <p className="text-base-content/60 mt-1 text-sm">Create, edit, and publish your job openings.</p>
-                </div>
-
-                <button className="btn btn-primary rounded-xl shadow-md bg-linear-to-r from-primary to-secondary border-none w-full sm:w-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    Post New Job
+            {/* Tabs Menu */}
+            <div className="flex gap-6 text-sm mt-2 border-b border-base-content/10">
+                <button onClick={() => setActiveTab('All')} className={getTabClass('All')}>
+                    All Roles <span className="badge badge-sm badge-primary badge-soft ml-1">{jobs.length}</span>
+                </button>
+                <button onClick={() => setActiveTab('Published')} className={getTabClass('Published')}>
+                    Active <span className="badge badge-sm bg-base-200 border-none text-base-content/60 ml-1">{jobs.filter(j => j.status === 'Published').length}</span>
+                </button>
+                <button onClick={() => setActiveTab('Draft')} className={getTabClass('Draft')}>
+                    Drafts <span className="badge badge-sm bg-base-200 border-none text-base-content/60 ml-1">{jobs.filter(j => j.status === 'Draft').length}</span>
+                </button>
+                <button onClick={() => setActiveTab('Closed')} className={getTabClass('Closed')}>
+                    Closed <span className="badge badge-sm bg-base-200 border-none text-base-content/60 ml-1">{jobs.filter(j => j.status === 'Closed').length}</span>
                 </button>
             </div>
 
-            {/* 2. Tabs */}
-            <div className="flex gap-6 text-sm font-medium mt-2">
-                <button className="text-primary border-b-2 border-primary pb-1">All Roles <span className="badge badge-sm badge-primary badge-soft ml-1">14</span></button>
-                <button className="text-base-content/50 hover:text-base-content pb-1">Active <span className="badge badge-sm bg-base-200 border-none text-base-content/60 ml-1">12</span></button>
-                <button className="text-base-content/50 hover:text-base-content pb-1">Drafts <span className="badge badge-sm bg-base-200 border-none text-base-content/60 ml-1">2</span></button>
-            </div>
-
-            {/* 3. Job List */}
             <div className="flex flex-col gap-4 mt-2">
-
-                {/* Active Job Card */}
-                <div className="bg-base-100 rounded-2xl p-4 sm:p-6 border border-base-content/5 shadow-sm hover:shadow-md transition-shadow flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center relative overflow-hidden">
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-success"></div>
-
-                    <div className="flex-1 pl-2 w-full">
-                        <div className="flex items-center gap-3 mb-2">
-                            <h2 className="text-lg sm:text-xl font-bold line-clamp-1">Senior Product Designer</h2>
-                            <span className="badge badge-success badge-soft text-[10px] font-bold uppercase tracking-widest py-2.5 shrink-0">Published</span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-base-content/60 flex flex-wrap items-center gap-2">
-                            Engineering • Remote • <span className="text-base-content/40">Created Oct 12</span>
-                        </p>
+                {displayedJobs.map(job => (
+                    <JobCard
+                        key={job.id}
+                        {...job}
+                        onChangeStatus={handleChangeStatus}
+                    />
+                ))}
+                {displayedJobs.length === 0 && (
+                    <div className="text-center py-12 text-base-content/50 font-medium bg-base-200/20 rounded-2xl border border-dashed border-base-content/20">
+                        No jobs found in this category.
                     </div>
-
-                    {/* FIXED MOBILE OVERFLOW: Adjusted gaps, paddings, and added flex-1 to center items */}
-                    <div className="flex justify-between sm:justify-center items-center gap-2 sm:gap-8 px-4 sm:px-6 py-4 bg-base-200/30 rounded-2xl border border-base-content/5 w-full xl:w-auto">
-                        <div className="text-center flex-1 sm:flex-none">
-                            <p className="text-xl sm:text-2xl font-bold text-base-content">42</p>
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-base-content/50 mt-1">Applied</p>
-                        </div>
-                        <div className="w-px h-8 bg-base-content/10 shrink-0"></div>
-                        <div className="text-center flex-1 sm:flex-none">
-                            <p className="text-xl sm:text-2xl font-bold text-primary">8</p>
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-base-content/50 mt-1">Interview</p>
-                        </div>
-                        <div className="w-px h-8 bg-base-content/10 shrink-0"></div>
-                        <div className="text-center flex-1 sm:flex-none">
-                            <p className="text-xl sm:text-2xl font-bold text-success">1</p>
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-base-content/50 mt-1">Offered</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between xl:justify-end gap-6 w-full xl:w-auto mt-2 xl:mt-0 pt-4 xl:pt-0 border-t border-base-content/5 xl:border-none">
-                        <div className="flex flex-col items-start xl:items-end gap-1">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-base-content/50">Accepting</span>
-                            <input type="checkbox" className="toggle toggle-success toggle-sm" defaultChecked />
-                        </div>
-
-                        <div className="dropdown dropdown-end">
-                            <button tabIndex={0} className="btn btn-ghost btn-circle btn-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" /></svg>
-                            </button>
-                            <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-40 border border-base-content/10">
-                                <li><a className="font-medium">Edit Job</a></li>
-                                <li><a className="font-medium text-error">Delete</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
+                )}
             </div>
         </div>
     );

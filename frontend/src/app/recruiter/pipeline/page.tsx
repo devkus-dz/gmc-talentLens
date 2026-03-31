@@ -1,110 +1,107 @@
-// src/app/recruiter/pipeline/page.tsx
-import React from 'react';
+"use client";
+
+import React, { useState, useMemo } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import KanbanBoard, { KanbanColumn, KanbanCard } from '@/components/ui/KanbanBoard';
+import { DragEndEvent } from '@dnd-kit/core';
+
+// --- THE DYNAMIC BOARD CONFIGURATION ---
+// We can define any stages we want here. The board will build itself automatically!
+const PIPELINE_STAGES = [
+    { id: 'applied', title: 'Applied', themeClass: 'bg-base-200/30 border-base-content/5', badgeClass: 'bg-base-300 text-base-content/70' },
+    { id: 'review', title: 'In Review', themeClass: 'bg-primary/5 border-primary/10', badgeClass: 'bg-primary/20 text-primary', accentColor: 'bg-primary' },
+    { id: 'interview', title: 'Interview', themeClass: 'bg-warning/5 border-warning/10', badgeClass: 'bg-warning/20 text-warning', accentColor: 'bg-warning' },
+    { id: 'offered', title: 'Offered', themeClass: 'bg-success/5 border-success/10', badgeClass: 'bg-success/20 text-success', accentColor: 'bg-success' },
+    { id: 'rejected', title: 'Rejected', themeClass: 'bg-error/5 border-error/10', badgeClass: 'bg-error/20 text-error' },
+];
+
+// --- MOCK DATA ---
+const MOCK_JOBS = [
+    { id: 'job-1', title: 'Senior Product Designer', department: 'Design', status: 'Published' },
+    { id: 'job-2', title: 'Fullstack Engineer', department: 'Engineering', status: 'Published' },
+    { id: 'job-3', title: 'Marketing Director', department: 'Marketing', status: 'Closed' }, // Won't show in dropdown!
+];
+
+const INITIAL_CANDIDATES = [
+    { id: 'c-1', jobId: 'job-1', status: 'applied', name: 'Felix Brown', match: '72%', time: '2 hours ago', skills: ['Figma', 'UX'], avatar: 'https://ui-avatars.com/api/?name=Felix+Brown&background=f3f4f6' },
+    { id: 'c-2', jobId: 'job-1', status: 'review', name: 'Maya Jenkins', match: '89%', time: '1 day ago', skills: ['Design Systems', 'Leadership'], avatar: 'https://ui-avatars.com/api/?name=Maya+Jenkins&background=0D1117&color=fff' },
+    { id: 'c-3', jobId: 'job-1', status: 'interview', name: 'Sam Wilson', match: '94%', time: 'Today @ 2:00 PM', skills: ['UI/UX', 'Prototyping'], avatar: 'https://ui-avatars.com/api/?name=Sam+Wilson&background=0284c7&color=fff' },
+    { id: 'c-4', jobId: 'job-2', status: 'applied', name: 'Alex Rivera', match: '65%', time: '5 hours ago', skills: ['React', 'TypeScript'], avatar: 'https://ui-avatars.com/api/?name=Alex+Rivera&background=f3f4f6' },
+];
 
 export default function PipelineKanban() {
+    const [selectedJobId, setSelectedJobId] = useState<string>(MOCK_JOBS[0].id);
+    const [candidates, setCandidates] = useState(INITIAL_CANDIDATES);
+
+    const activeCandidates = useMemo(() => {
+        return candidates.filter(c => c.jobId === selectedJobId);
+    }, [candidates, selectedJobId]);
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over) return;
+
+        const cardId = active.id;
+        const newStatus = over.id as string;
+
+        setCandidates((prev) =>
+            prev.map((c) => c.id === cardId ? { ...c, status: newStatus } : c)
+        );
+    };
+
+    // --- DYNAMICALLY GENERATE COLUMNS ---
+    // Instead of hardcoding 5 objects, we just map over our configuration
+    const columns: KanbanColumn[] = PIPELINE_STAGES.map(stage => ({
+        id: stage.id,
+        title: stage.title,
+        count: activeCandidates.filter(c => c.status === stage.id).length,
+        themeClass: stage.themeClass,
+        headerBadgeClass: stage.badgeClass,
+    }));
+
+    // --- DYNAMICALLY GENERATE CARDS ---
+    const cards: KanbanCard[] = activeCandidates.map(c => {
+        // Look up the stage configuration to find the correct accent color
+        const stageConfig = PIPELINE_STAGES.find(s => s.id === c.status);
+
+        return {
+            id: c.id,
+            columnId: c.status,
+            title: c.name,
+            subtitle: c.time,
+            avatarUrl: c.avatar,
+            badgeText: c.match,
+            badgeClass: c.match && parseInt(c.match) > 85 ? 'bg-primary text-primary-content' : 'bg-base-200 text-base-content/70',
+            tags: c.skills,
+            accentColor: stageConfig?.accentColor,
+            metaNode: c.status === 'interview' ? (
+                <div className="bg-warning/10 text-warning-content text-[10px] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1.5 w-max">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h8.25a3 3 0 003-3v-9a3 3 0 00-3-3H4.5zM19.94 18.75l-2.69-2.69V7.94l2.69-2.69c.944-.945 2.56-.276 2.56 1.06v11.38c0 1.336-1.616 2.005-2.56 1.06z" /></svg>
+                    Zoom link attached
+                </div>
+            ) : undefined
+        };
+    });
+
     return (
-        // Added flex-1 and min-h-0 to ensure it doesn't collapse on mobile
         <div className="flex flex-col gap-6 flex-1 min-h-0 max-w-[1600px] mx-auto w-full animate-fade-in p-2">
-
-            {/* 1. Header & Filters */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Kanban Pipeline</h1>
-                    <p className="text-base-content/60 mt-1 text-sm">Drag and drop candidates to update their status.</p>
-                </div>
-
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    <select className="select select-bordered select-sm rounded-xl bg-base-100 border-base-content/10 font-medium flex-1 md:flex-none">
-                        <option>All Active Jobs</option>
-                        <option>Senior Product Designer</option>
-                        <option>Fullstack Engineer</option>
+            <PageHeader
+                title="Kanban Pipeline"
+                description="Select an active job requisition to manage its candidate pipeline."
+                action={
+                    <select
+                        className="select select-bordered bg-base-100 border-base-content/10 font-medium w-full sm:w-64 rounded-xl shadow-sm focus:outline-primary/20"
+                        value={selectedJobId}
+                        onChange={(e) => setSelectedJobId(e.target.value)}
+                    >
+                        {MOCK_JOBS.filter(job => job.status === 'Published').map(job => (
+                            <option key={job.id} value={job.id}>{job.title} ({job.department})</option>
+                        ))}
                     </select>
-                    <button className="btn btn-sm btn-outline border-base-content/20 rounded-xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
-                        Filter
-                    </button>
-                </div>
-            </div>
+                }
+            />
 
-            {/* 2. The Kanban Board (Fluid height for mobile support) */}
-            <div className="flex-1 flex overflow-x-auto gap-4 sm:gap-6 pb-6 w-full thin-scrollbar snap-x snap-mandatory">
-
-                {/* Column 1: Applied */}
-                {/* FIXED MOBILE WIDTH: Takes up 85vw on mobile, 320px on desktop */}
-                <div className="min-w-[85vw] sm:min-w-[320px] w-[85vw] sm:w-[320px] bg-base-200/30 rounded-4xl p-4 flex flex-col border border-base-content/5 snap-center shrink-0 h-full">
-                    <div className="flex justify-between items-center mb-4 px-2">
-                        <h3 className="font-bold text-base-content/70 uppercase tracking-widest text-xs">Applied <span className="ml-2 badge badge-sm bg-base-300 border-none font-bold text-base-content/70">12</span></h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto thin-scrollbar flex flex-col gap-3 pb-20">
-                        <div className="bg-base-100 rounded-2xl p-4 border border-base-content/5 shadow-sm cursor-grab active:cursor-grabbing hover:border-primary/30 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="avatar"><div className="w-8 h-8 rounded-full"><img src="https://ui-avatars.com/api/?name=F+B&background=f3f4f6" alt="Avatar" /></div></div>
-                                    <h4 className="font-bold text-sm">Felix Brown</h4>
-                                </div>
-                                <span className="badge badge-sm border-none bg-base-200 text-base-content/70 font-bold">72%</span>
-                            </div>
-                            <p className="text-xs text-base-content/50 mb-3 truncate">Applied for: Senior Product Designer</p>
-                            <div className="flex gap-2">
-                                <span className="badge bg-base-200/50 border-none text-[10px] px-2 py-2">Figma</span>
-                                <span className="badge bg-base-200/50 border-none text-[10px] px-2 py-2">UX</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Column 2: In Review */}
-                <div className="min-w-[85vw] sm:min-w-[320px] w-[85vw] sm:w-[320px] bg-primary/5 rounded-4xl p-4 flex flex-col border border-primary/10 snap-center shrink-0 h-full">
-                    <div className="flex justify-between items-center mb-4 px-2">
-                        <h3 className="font-bold text-primary uppercase tracking-widest text-xs">In Review <span className="ml-2 badge badge-sm bg-primary/20 text-primary border-none font-bold">08</span></h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto thin-scrollbar flex flex-col gap-3 pb-20">
-                        <div className="bg-base-100 rounded-2xl p-4 border border-base-content/5 shadow-md relative overflow-hidden cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors">
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                            <div className="flex justify-between items-start mb-2 pl-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="avatar"><div className="w-8 h-8 rounded-full"><img src="https://ui-avatars.com/api/?name=M+J&background=0D1117&color=fff" alt="Avatar" /></div></div>
-                                    <h4 className="font-bold text-sm">Maya Jenkins</h4>
-                                </div>
-                                <span className="badge badge-sm border-none bg-primary text-primary-content font-bold">89%</span>
-                            </div>
-                            <p className="text-xs text-base-content/50 mb-3 pl-2 truncate">Applied for: Fullstack Engineer</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Column 3: Interview */}
-                <div className="min-w-[85vw] sm:min-w-[320px] w-[85vw] sm:w-[320px] bg-warning/5 rounded-4xl p-4 flex flex-col border border-warning/10 snap-center shrink-0 h-full">
-                    <div className="flex justify-between items-center mb-4 px-2">
-                        <h3 className="font-bold text-warning uppercase tracking-widest text-xs">Interview <span className="ml-2 badge badge-sm bg-warning/20 text-warning border-none font-bold">05</span></h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto thin-scrollbar flex flex-col gap-3 pb-20">
-                        <div className="bg-base-100 rounded-2xl p-4 border border-base-content/5 shadow-sm cursor-grab active:cursor-grabbing hover:border-warning/50 transition-colors relative overflow-hidden">
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-warning"></div>
-                            <div className="flex justify-between items-start mb-2 pl-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="avatar"><div className="w-8 h-8 rounded-full"><img src="https://ui-avatars.com/api/?name=S+W&background=0284c7&color=fff" alt="Avatar" /></div></div>
-                                    <h4 className="font-bold text-sm">Sam Wilson</h4>
-                                </div>
-                                <span className="badge badge-sm border-none bg-base-200 text-base-content/70 font-bold">92%</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Column 4: Offered */}
-                <div className="min-w-[85vw] sm:min-w-[320px] w-[85vw] sm:w-[320px] bg-info/5 rounded-4xl p-4 flex flex-col border border-info/10 snap-center shrink-0 h-full">
-                    <div className="flex justify-between items-center mb-4 px-2">
-                        <h3 className="font-bold text-info uppercase tracking-widest text-xs">Offered <span className="ml-2 badge badge-sm bg-info/20 text-info border-none font-bold">02</span></h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto thin-scrollbar flex flex-col gap-3 pb-20">
-                        <div className="h-32 border-2 border-dashed border-info/20 rounded-2xl flex items-center justify-center text-info/50 text-sm font-medium">
-                            Drop candidate here
-                        </div>
-                    </div>
-                </div>
-
-            </div>
+            <KanbanBoard columns={columns} cards={cards} onDragEnd={handleDragEnd} />
         </div>
     );
 }

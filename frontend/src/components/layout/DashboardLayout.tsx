@@ -65,8 +65,8 @@ export default function DashboardLayout({
                                         <Link
                                             href={link.href}
                                             className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all w-full ${active
-                                                    ? 'bg-base-100 text-primary font-bold shadow-sm border border-base-content/5'
-                                                    : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'
+                                                ? 'bg-base-100 text-primary font-bold shadow-sm border border-base-content/5'
+                                                : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'
                                                 }`}
                                         >
                                             {link.icon}

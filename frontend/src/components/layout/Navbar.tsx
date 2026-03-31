@@ -7,11 +7,6 @@ export default function Navbar() {
 
             {/* Left: Mobile Drawer Toggle & Logo */}
             <div className="flex-1 flex items-center">
-                <label htmlFor="dashboard-drawer" className="btn btn-ghost drawer-button lg:hidden mr-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" />
-                    </svg>
-                </label>
                 <Link href="/" className="text-xl font-bold text-primary flex items-center gap-2">
                     {/* Mock Logo Icon */}
                     <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
