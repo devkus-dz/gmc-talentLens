@@ -106,27 +106,26 @@ class ResumeController extends BaseController<IResume> {
             const { id } = req.params;
             const userId = req.user?.id;
 
-            // Fetch the existing resume to verify ownership
-            const existingResume = await resumeRepository.findById(id as string);
+            const existingResume = await this.repository.findById(id as string);
 
             if (!existingResume) {
                 res.status(404).json({ message: 'Resume not found.' });
                 return;
             }
 
-            // Security Check: Only the owner (or an Admin) can edit the resume
+            // Security Check
             if (existingResume.userId.toString() !== userId?.toString() && req.user?.role !== 'ADMIN') {
                 res.status(403).json({ message: 'Forbidden. You do not own this resume.' });
                 return;
             }
 
-            // Prevent overriding critical system fields
+            // Prevent overriding critical system fields, but allow everything else (like languages and certs)
             const updateData = { ...req.body };
             delete updateData.userId;
             delete updateData.fileKey;
 
-            // Perform the update
-            const updatedResume = await resumeRepository.update(id as string, updateData);
+            // Perform the update using the inherited BaseRepository
+            const updatedResume = await this.repository.update(id as string, updateData);
 
             res.status(200).json({
                 message: 'Resume updated successfully.',

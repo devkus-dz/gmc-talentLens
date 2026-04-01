@@ -1,4 +1,3 @@
-// src/models/JobOffer.ts
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IApplicant {
@@ -10,12 +9,16 @@ export interface IApplicant {
 export interface IJobOffer extends Document {
     title: string;
     description: string;
+    department: string;
+    location: string;
+    employmentType: string;
+    salaryRange: string;
     minYearsOfExperience: number;
     requiredSkills: string[];
     tags: string[];
     applicants: IApplicant[];
     createdBy: mongoose.Types.ObjectId;
-    isActive: boolean;
+    status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
     createdAt: Date;
     updatedAt: Date;
 }
@@ -34,12 +37,20 @@ const JobOfferSchema: Schema = new Schema(
     {
         title: { type: String, required: true },
         description: { type: String, required: true },
+        department: { type: String, default: 'General' },
+        location: { type: String, default: 'Remote' },
+        employmentType: { type: String, default: 'Full-time' },
+        salaryRange: { type: String, default: 'Competitive' },
         minYearsOfExperience: { type: Number, default: 0 },
         requiredSkills: { type: [String], default: [] },
         tags: { type: [String], default: [] },
         applicants: { type: [ApplicantSchema], default: [] },
         createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        isActive: { type: Boolean, default: true },
+        status: {
+            type: String,
+            enum: ['DRAFT', 'PUBLISHED', 'CLOSED'],
+            default: 'DRAFT'
+        },
     },
     { timestamps: true }
 );

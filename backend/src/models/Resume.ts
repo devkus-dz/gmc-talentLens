@@ -1,4 +1,3 @@
-// src/models/Resume.ts
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IExperience {
@@ -16,6 +15,17 @@ export interface IEducation {
     endDate: string | null;
 }
 
+export interface ILanguage {
+    name: string;
+    level: string;
+}
+
+export interface ICertification {
+    name: string;
+    issuer: string;
+    date?: string | null;
+}
+
 export interface IResume extends Document {
     improvementTip: any;
     id: any;
@@ -30,21 +40,21 @@ export interface IResume extends Document {
     summary: string;
     experiences: IExperience[];
     education: IEducation[];
+    languages: ILanguage[];
+    certifications: ICertification[];
     tags: string[];
     locale: string;
     createdAt: Date;
     updatedAt: Date;
 }
 
-// Sub-schema for Education
 const EducationSchema = new Schema<IEducation>({
     institution: { type: String, default: null },
     degree: { type: String, default: null },
     startDate: { type: String, default: null },
     endDate: { type: String, default: null },
-}, { _id: false }); // _id: false prevents Mongoose from creating separate IDs for every single education entry
+}, { _id: false });
 
-// Sub-schema for Experience
 const ExperienceSchema = new Schema<IExperience>({
     company: { type: String, default: null },
     position: { type: String, default: null },
@@ -53,17 +63,21 @@ const ExperienceSchema = new Schema<IExperience>({
     description: { type: String, default: null },
 }, { _id: false });
 
+const LanguageSchema = new Schema<ILanguage>({
+    name: { type: String, required: true },
+    level: { type: String, required: true }
+}, { _id: false });
+
+const CertificationSchema = new Schema<ICertification>({
+    name: { type: String, required: true },
+    issuer: { type: String, required: true },
+    date: { type: String, default: null }
+}, { _id: false });
+
 const ResumeSchema: Schema = new Schema(
     {
-        userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User',
-            required: true
-        },
-        fileKey: {
-            type: String,
-            required: true
-        },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        fileKey: { type: String, required: true },
         firstName: { type: String, default: null },
         lastName: { type: String, default: null },
         email: { type: String, default: null },
@@ -75,11 +89,11 @@ const ResumeSchema: Schema = new Schema(
         summary: { type: String, default: null },
         experiences: { type: [ExperienceSchema], default: [] },
         education: { type: [EducationSchema], default: [] },
+        languages: { type: [LanguageSchema], default: [] },
+        certifications: { type: [CertificationSchema], default: [] },
         improvementTip: { type: String, default: null },
     },
-    {
-        timestamps: true,
-    }
+    { timestamps: true }
 );
 
 export default mongoose.model<IResume>('Resume', ResumeSchema);

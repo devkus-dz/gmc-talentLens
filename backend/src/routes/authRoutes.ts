@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { protect } from '../middlewares/authMiddleware';
+import { validate } from '../middlewares/validateMiddleware';
+import { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from '../validations/authValidation';
 
 const router = Router();
 
@@ -9,21 +11,14 @@ const router = Router();
  * @description Registers a new candidate, recruiter, or admin.
  * @access Public
  */
-router.post('/register', authController.register);
+router.post('/register', validate(registerSchema), authController.register);
 
 /**
  * @route POST /api/auth/login
  * @description Authenticates a user and returns an HttpOnly cookie.
  * @access Public
  */
-router.post('/login', authController.login);
-
-/**
- * @route POST /api/auth/login
- * @description Authenticates a user and returns an HttpOnly cookie.
- * @access Public
- */
-router.post('/login', authController.login);
+router.post('/login', validate(loginSchema), authController.login);
 
 /**
  * @route POST /api/auth/logout
@@ -45,14 +40,14 @@ router.get('/me', protect, authController.getMe);
  * @description Generates a password reset token and sends an email.
  * @access Public
  */
-router.post('/forgot-password', authController.forgotPassword);
+router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 
 /**
  * @route PATCH /api/auth/reset-password/:token
  * @description Resets the password using the provided secure token.
  * @access Public
  */
-router.patch('/reset-password/:token', authController.resetPassword);
+router.patch('/reset-password/:token', validate(resetPasswordSchema), authController.resetPassword);
 
 
 export default router;
