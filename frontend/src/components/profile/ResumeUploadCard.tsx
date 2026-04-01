@@ -1,21 +1,65 @@
-import React from 'react';
+"use client";
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import FileUploadZone from '@/components/ui/FileUploadZone';
+import api from '@/lib/api';
 
 interface ResumeUploadCardProps {
     fileName?: string;
     parsedDate?: string;
-    onFileSelect: (file: File) => void;
 }
 
-export default function ResumeUploadCard({ fileName, parsedDate, onFileSelect }: ResumeUploadCardProps) {
+/**
+ * Client component that handles the PDF upload and triggers AI parsing.
+ * @param {ResumeUploadCardProps} props - The component props.
+ * @returns {React.JSX.Element} The upload card UI.
+ */
+export default function ResumeUploadCard({ fileName, parsedDate }: ResumeUploadCardProps) {
+    const router = useRouter();
+    const [isUploading, setIsUploading] = useState(false);
+
+    /**
+     * Handles the file selection, sends it to Express, and refreshes the server component.
+     * @param {File} file - The selected PDF file.
+     */
+    const handleFileSelect = async (file: File) => {
+        setIsUploading(true);
+        const formData = new FormData();
+
+        // This key MUST match uploadMiddleware.single('pdfFile') in your backend resumeRoutes.ts
+        formData.append('pdfFile', file);
+
+        try {
+            await api.post('/resumes/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            // Refreshes the current route, causing the Server Component to re-fetch the new data!
+            router.refresh();
+        } catch (error) {
+            console.error("Upload failed:", error);
+            alert("Failed to upload and parse resume. Please try again.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     return (
-        <div className="bg-base-100 rounded-4xl p-6 shadow-sm border border-base-content/5 flex flex-col">
+        <div className="bg-base-100 rounded-4xl p-6 shadow-sm border border-base-content/5 flex flex-col relative overflow-hidden">
+            {isUploading && (
+                <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                    <span className="loading loading-spinner loading-lg text-primary mb-4"></span>
+                    <p className="font-bold animate-pulse">Gemini AI is parsing your resume...</p>
+                </div>
+            )}
+
             <h2 className="font-bold text-lg mb-4">Your Resume</h2>
 
             <FileUploadZone
                 label="Click or drag PDF to replace"
                 helperText="Max file size: 5MB"
-                onFileSelect={onFileSelect}
+                onFileSelect={handleFileSelect}
             />
 
             {fileName && (

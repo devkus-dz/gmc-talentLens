@@ -3,30 +3,43 @@ import React from 'react';
 interface AIAnalysisCardProps {
     score: number;
     primaryRole: string;
-    missingSkills: string[];
+    missingSkills?: string[];
+    improvementTip?: string;
 }
 
-export default function AIAnalysisCard({ score, primaryRole, missingSkills }: AIAnalysisCardProps) {
+export default function AIAnalysisCard({ score, primaryRole, missingSkills = [], improvementTip }: AIAnalysisCardProps) {
     return (
-        <div className="bg-linear-to-br from-primary/5 to-secondary/5 rounded-4xl p-6 border border-primary/10 flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-primary"><path fillRule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5zM18 1.5a.75.75 0 01.728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 010 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 01-1.456 0l-.258-1.036a2.625 2.625 0 00-1.91-1.91l-1.036-.258a.75.75 0 010-1.456l1.036-.258a2.625 2.625 0 001.91-1.91l.258-1.036A.75.75 0 0118 1.5z" clipRule="evenodd" /></svg>
-                <span className="font-bold text-primary text-sm">AI Profile Analysis</span>
+        <div className="bg-primary/5 rounded-4xl p-6 sm:p-8 border border-primary/10">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-primary text-primary-content rounded-xl shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09l2.846.813-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" /></svg>
+                </div>
+                <div>
+                    <h3 className="font-bold text-lg text-primary">AI Profile Match</h3>
+                    {/* Changed from "Analyzed by Gemini" to "AI Analysis" */}
+                    <p className="text-xs text-primary/70 font-medium tracking-wide uppercase">AI Analysis</p>
+                </div>
             </div>
-            <p className="text-sm leading-relaxed text-base-content/80 mb-4">
-                Your profile is highly optimized for {primaryRole} roles. However, adding{' '}
-                {missingSkills.map((skill, i) => (
-                    <span key={skill}>
-                        <span className="font-semibold text-primary">{skill}</span>
-                        {i < missingSkills.length - 1 ? ' or ' : ''}
-                    </span>
-                ))}{' '}
-                to your skills could increase your match rate.
-            </p>
-            <div className="w-full bg-base-200 rounded-full h-2 mb-1">
-                <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${score}%` }}></div>
+
+            <div className="mb-6">
+                <div className="flex justify-between items-end mb-2">
+                    <span className="text-sm font-semibold text-base-content/70">Profile Strength</span>
+                    <span className="text-2xl font-black text-primary">{score}%</span>
+                </div>
+                <progress className="progress progress-primary w-full h-2.5" value={score} max="100"></progress>
             </div>
-            <p className="text-xs text-right text-base-content/50 font-medium mt-1">{score}% Complete</p>
+
+            <div className="bg-base-100 rounded-2xl p-4 shadow-sm border border-base-content/5 mb-6">
+                <span className="text-xs font-bold text-base-content/40 uppercase tracking-widest block mb-1">Detected Role</span>
+                <span className="font-semibold text-base-content" dir="auto">{primaryRole}</span>
+            </div>
+
+            <div className="mb-2">
+                <span className="text-xs font-bold text-base-content/40 uppercase tracking-widest block mb-2">AI Suggestion</span>
+                <p className="text-sm leading-relaxed text-base-content/80" dir="auto">
+                    {improvementTip || "Your profile is well structured. Consider adding more quantifiable achievements to your experience section."}
+                </p>
+            </div>
         </div>
     );
 }
