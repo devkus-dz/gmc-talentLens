@@ -1,4 +1,5 @@
 import DashboardLayout, { NavLink } from '@/components/layout/DashboardLayout';
+import RoleGuard from '@/components/auth/RoleGuard';
 import { ReactNode } from 'react';
 
 const candidateLinks: NavLink[] = [
@@ -7,10 +8,19 @@ const candidateLinks: NavLink[] = [
     { label: 'Profile', href: '/candidate/profile', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
 ];
 
+/**
+ * The layout wrapper for all Candidate routes, rendering the sidebar
+ * and enforcing role-based access control.
+ * @param {Object} props - The component props.
+ * @param {ReactNode} props.children - The child page components to render.
+ * @returns {React.JSX.Element} The secured candidate layout.
+ */
 export default function CandidateLayout({ children }: { children: ReactNode }) {
     return (
-        <DashboardLayout primaryLinks={candidateLinks}>
-            {children}
-        </DashboardLayout>
+        <RoleGuard allowedRoles={['CANDIDATE']}>
+            <DashboardLayout primaryLinks={candidateLinks}>
+                {children}
+            </DashboardLayout>
+        </RoleGuard>
     );
 }

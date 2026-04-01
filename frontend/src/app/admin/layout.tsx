@@ -1,4 +1,5 @@
 // src/app/admin/layout.tsx
+import RoleGuard from '@/components/auth/RoleGuard';
 import DashboardLayout, { NavLink } from '@/components/layout/DashboardLayout';
 import { ReactNode } from 'react';
 
@@ -21,8 +22,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     );
 
     return (
-        <DashboardLayout primaryLinks={adminPrimaryLinks} secondaryLinks={adminSecondaryLinks} topSidebarContent={badge}>
-            {children}
-        </DashboardLayout>
+        <RoleGuard allowedRoles={['ADMIN']}>
+            <DashboardLayout primaryLinks={adminPrimaryLinks} secondaryLinks={adminSecondaryLinks} topSidebarContent={badge}>
+                {children}
+            </DashboardLayout>
+        </RoleGuard>
     );
 }
