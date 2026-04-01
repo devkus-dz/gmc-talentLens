@@ -234,7 +234,7 @@ export const authController = {
                 resetPasswordExpires: Date.now() + 3600000 // 1 Hour
             });
 
-            const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+            const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password/${resetToken}`;
 
             await emailService.sendPasswordResetEmail(user.email, resetUrl);
 
