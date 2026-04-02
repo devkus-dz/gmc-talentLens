@@ -3,30 +3,21 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import User, { IUser } from '../models/User';
 import { s3Service } from '../services/s3Service';
 import { userRepository } from '../repositories/UserRepository';
-import { BaseController } from './BaseController'; // <-- Import the new BaseController
+import { BaseController } from './BaseController';
 
 /**
  * Controller handling user profile updates and interactions.
  * Inherits standard CRUD from BaseController.
- * @class UserController
- * @extends {BaseController<IUser>}
  */
 class UserController extends BaseController<IUser> {
-    deleteUser(arg0: string, protect: (req: AuthRequest, res: Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>, arg2: (req: AuthRequest, res: Response<any, Record<string, any>>, next: import("express").NextFunction) => void, deleteUser: any) {
-        throw new Error('Method not implemented.');
-    }
     constructor() {
-        super(userRepository); // Pass the UserRepository to the BaseController
+        super(userRepository);
     }
 
     // ==========================================
     // OVERRIDDEN CRUD METHODS (Security Filters)
     // ==========================================
 
-    /**
-     * Retrieves a paginated list of all users.
-     * Overridden to strip passwords and handle role filtering.
-     */
     getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
@@ -38,7 +29,6 @@ class UserController extends BaseController<IUser> {
 
             const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 });
 
-            // Strip passwords
             const safeData = result.data.map(user => {
                 const userObj = user.toObject();
                 delete userObj.passwordHash;
@@ -52,10 +42,6 @@ class UserController extends BaseController<IUser> {
         }
     };
 
-    /**
-     * Retrieves a single user by ID.
-     * Overridden to strip the password hash.
-     */
     getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
@@ -76,17 +62,13 @@ class UserController extends BaseController<IUser> {
         }
     };
 
-    /**
-     * Updates a user's basic information (Admin override).
-     * Overridden to prevent accidental password or role updates.
-     */
     updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
 
             const updateData = { ...req.body };
-            delete updateData.passwordHash; // Protect password
-            delete updateData.role;         // Protect role
+            delete updateData.passwordHash;
+            delete updateData.role;
 
             const updatedUser = await this.repository.update(id as string, updateData);
 
@@ -109,9 +91,6 @@ class UserController extends BaseController<IUser> {
     // CUSTOM METHODS (Specific to User Logic)
     // ==========================================
 
-    /**
-     * Toggles a user's active status (Activate / Deactivate).
-     */
     toggleUserStatus = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
@@ -132,20 +111,12 @@ class UserController extends BaseController<IUser> {
         }
     };
 
-    // ==========================================
-    // CANDIDATE METHODS (Restored Logic)
-    // ==========================================
-
-    /**
-     * Retrieves the full details of all job offers the candidate has saved.
-     */
     getSavedJobs = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            // We use the raw User model here because we need Mongoose's powerful .populate()
             const user = await User.findById(req.user?.id)
                 .populate({
                     path: 'savedJobs',
-                    select: '-applicants' // Hide other applicants' data
+                    select: '-applicants'
                 })
                 .lean();
 
@@ -164,9 +135,6 @@ class UserController extends BaseController<IUser> {
         }
     };
 
-    /**
-     * Toggles saving or unsaving a job offer.
-     */
     toggleSavedJob = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { jobId } = req.params;
@@ -184,9 +152,9 @@ class UserController extends BaseController<IUser> {
             const jobIndex = user.savedJobs.indexOf(jobId as any);
 
             if (jobIndex > -1) {
-                user.savedJobs.splice(jobIndex, 1); // Unsave
+                user.savedJobs.splice(jobIndex, 1);
             } else {
-                user.savedJobs.push(jobId as any); // Save
+                user.savedJobs.push(jobId as any);
             }
 
             await user.save();
@@ -201,9 +169,6 @@ class UserController extends BaseController<IUser> {
         }
     };
 
-    /**
-     * Toggles the candidate's 'Open to Work' status.
-     */
     toggleJobStatus = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { isLookingForJob } = req.body;
@@ -216,7 +181,7 @@ class UserController extends BaseController<IUser> {
             const updatedUser = await User.findByIdAndUpdate(
                 req.user?.id,
                 { isLookingForJob },
-                { returnDocument: 'after' } // Updated to use modern Mongoose syntax
+                { returnDocument: 'after' }
             ).select('-passwordHash');
 
             res.status(200).json({ message: 'Job search status updated.', user: updatedUser });
@@ -227,8 +192,9 @@ class UserController extends BaseController<IUser> {
     };
 
     /**
-     * Uploads and updates a user's profile picture.
-     */
+         * Uploads and updates a user's profile picture.
+         * Automatically deletes the previous image from RustFS to optimize storage.
+         */
     uploadProfilePicture = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             if (!req.file) {
@@ -241,17 +207,35 @@ class UserController extends BaseController<IUser> {
                 return;
             }
 
+            // --- 1. CLEANUP PHASE: Delete the old image from S3 ---
+            const user = await this.repository.findById(req.user.id);
+            if (user && user.profilePictureUrl) {
+                // The URL looks like: http://localhost:9000/talentlens-storage/profile-images/filename.jpg
+                // We use a regex to safely extract exactly "profile-images/filename.jpg"
+                const match = user.profilePictureUrl.match(/(profile-images\/[^?]+)/);
+                if (match && match[1]) {
+                    await s3Service.deleteFile(match[1]);
+                }
+            }
+
+            // --- 2. UPLOAD NEW IMAGE ---
             const fileKey = await s3Service.uploadProfileImage(
                 req.file.buffer,
                 req.file.originalname,
                 req.file.mimetype
             );
 
-            await this.repository.update(req.user.id, { profilePictureUrl: fileKey });
+            // Construct the clean public URL
+            const endpoint = process.env.S3_ENDPOINT || 'http://localhost:9000';
+            const bucket = process.env.S3_BUCKET_NAME || 'talentlens-storage';
+            const publicUrl = `${endpoint}/${bucket}/${fileKey}`;
+
+            // Save the new public URL to the database
+            await this.repository.update(req.user.id, { profilePictureUrl: publicUrl });
 
             res.status(200).json({
                 message: 'Profile picture uploaded successfully!',
-                fileKey: fileKey
+                profilePictureUrl: publicUrl
             });
         } catch (error) {
             console.error('Controller Error:', error);
@@ -260,7 +244,7 @@ class UserController extends BaseController<IUser> {
     };
 
     /**
-     * Retrieves the authenticated user's profile.
+     * UPDATED: Removed Presigned URL logic. Now just returns the DB document.
      */
     getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
@@ -271,16 +255,7 @@ class UserController extends BaseController<IUser> {
                 return;
             }
 
-            const userProfile = user.toObject();
-
-            if (userProfile.profilePictureUrl) {
-                userProfile.profilePictureUrl = await s3Service.getPresignedUrl(
-                    userProfile.profilePictureUrl,
-                    3600
-                );
-            }
-
-            res.status(200).json(userProfile);
+            res.status(200).json(user.toObject());
         } catch (error) {
             console.error('Fetch Profile Error:', error);
             res.status(500).json({ message: 'Failed to retrieve user profile.' });
@@ -288,5 +263,4 @@ class UserController extends BaseController<IUser> {
     };
 }
 
-// Export a single instantiated instance of the class
 export const userController = new UserController();

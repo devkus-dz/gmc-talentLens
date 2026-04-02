@@ -1,17 +1,38 @@
 import React from 'react';
+import AvatarUpload from '@/components/ui/AvatarUpload';
 
 interface PersonalInfoFormProps {
     firstName: string;
     lastName: string;
     email: string;
+    profilePictureUrl?: string | null;
+    onUploadSuccess?: (newUrl: string) => void;
+    onUploadError?: (error: string) => void;
 }
 
-export default function PersonalInfoForm({ firstName, lastName, email }: PersonalInfoFormProps) {
+export default function PersonalInfoForm({
+    firstName,
+    lastName,
+    email,
+    profilePictureUrl,
+    onUploadSuccess,
+    onUploadError
+}: PersonalInfoFormProps) {
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="font-bold text-xl">Personal Information</h2>
-                <button className="btn btn-sm btn-ghost text-primary hover:bg-primary/10 rounded-xl">Edit</button>
+            {/* Header with inline Avatar Upload */}
+            <div className="flex justify-between items-start mb-8">
+                <div>
+                    <h2 className="font-bold text-xl">Personal Information</h2>
+                    <p className="text-sm text-base-content/50 mt-1">Manage your core identity and contact details.</p>
+                </div>
+                <AvatarUpload
+                    currentImageUrl={profilePictureUrl}
+                    firstName={firstName}
+                    lastName={lastName}
+                    onUploadSuccess={onUploadSuccess}
+                    onUploadError={onUploadError}
+                />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -56,8 +77,8 @@ export default function PersonalInfoForm({ firstName, lastName, email }: Persona
                     <input
                         type="email"
                         defaultValue={email}
-                        placeholder="jane.doe@example.com"
-                        className="input input-bordered w-full bg-base-200/30 border-base-content/10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-xl text-sm font-medium"
+                        readOnly
+                        className="input input-bordered w-full bg-base-200/30 border-base-content/10 text-base-content/60 rounded-xl text-sm font-medium cursor-not-allowed"
                     />
                 </label>
 

@@ -1,9 +1,16 @@
 "use client";
 import React from 'react';
-export interface Language { name: string; level: string; }
-interface Props { languages: Language[]; onAdd?: () => void; onRemove?: (index: number) => void; }
 
-export default function LanguagesCard({ languages, onAdd, onRemove }: Props) {
+export interface Language { name: string; level: string; }
+
+interface Props {
+    languages: Language[];
+    onAdd?: () => void;
+    onRemove?: (index: number) => void;
+    onEdit?: (index: number) => void;
+}
+
+export default function LanguagesCard({ languages, onAdd, onRemove, onEdit }: Props) {
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
@@ -12,11 +19,23 @@ export default function LanguagesCard({ languages, onAdd, onRemove }: Props) {
             </div>
             <div className="flex flex-col gap-3">
                 {languages.length > 0 ? languages.map((lang, index) => (
-                    <div key={index} className="bg-base-200/50 p-4 rounded-2xl border border-base-content/5 flex justify-between items-center group">
+                    <div
+                        key={index}
+                        className="bg-base-200/50 p-4 rounded-2xl border border-base-content/5 flex justify-between items-center group relative pr-10 cursor-pointer hover:border-primary/20 transition-colors"
+                        onClick={() => onEdit && onEdit(index)}
+                    >
                         <span className="font-bold text-sm" dir="auto">{lang.name}</span>
                         <div className="flex items-center gap-2">
                             <span className="badge badge-sm border-none bg-base-300 text-base-content/70" dir="auto">{lang.level}</span>
-                            {onRemove && <button type="button" onClick={() => onRemove(index)} className="opacity-0 group-hover:opacity-100 text-error hover:text-error/70 transition-opacity">✕</button>}
+                            {onRemove && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onRemove(index); }}
+                                    className="absolute right-4 opacity-0 group-hover:opacity-100 text-error hover:text-error/70 transition-opacity"
+                                >
+                                    ✕
+                                </button>
+                            )}
                         </div>
                     </div>
                 )) : <div className="text-center p-4 border border-dashed border-base-content/20 rounded-2xl text-base-content/50 text-sm">No languages added.</div>}

@@ -1,5 +1,12 @@
 // src/services/s3Service.ts
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+    S3Client,
+    PutObjectCommand,
+    GetObjectCommand,
+    PutBucketPolicyCommand,
+    PutBucketCorsCommand,
+    DeleteObjectCommand
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
@@ -27,7 +34,7 @@ const s3Client = new S3Client({
 export const s3Service = {
     /**
      * Uploads a file buffer to the S3 bucket and returns the unique file key.
-     * * @param {Buffer} fileBuffer - The binary data of the file (usually from multer).
+     * @param {Buffer} fileBuffer - The binary data of the file (usually from multer).
      * @param {string} originalName - The original name of the uploaded file (e.g., 'resume.pdf').
      * @param {string} mimeType - The MIME type of the file (e.g., 'application/pdf').
      * @returns {Promise<string>} The unique key (filename) generated for the S3 bucket.
@@ -61,7 +68,7 @@ export const s3Service = {
     /**
      * Generates a temporary, secure URL to read or download a file from the S3 bucket.
      * This is useful for keeping the bucket private but allowing the frontend to view the PDF.
-     * * @param {string} fileKey - The unique key of the file in the S3 bucket.
+     * @param {string} fileKey - The unique key of the file in the S3 bucket.
      * @param {number} expiresIn - Number of seconds until the URL expires (default: 3600s / 1 hour).
      * @returns {Promise<string>} The presigned URL.
      */
@@ -110,4 +117,73 @@ export const s3Service = {
             throw new Error('Failed to upload profile picture to storage.');
         }
     },
+
+    /**
+     * Call this once when the server starts to unlock the bucket for the frontend!
+     * Applies Public Read and CORS policies so frontend images and PDFs load correctly.
+     */
+    async configureBucket(): Promise<void> {
+        const bucketName = process.env.S3_BUCKET_NAME as string;
+        try {
+            // 1. Setup CORS so Next.js (localhost:3000) can load the images
+            const corsCommand = new PutBucketCorsCommand({
+                Bucket: bucketName,
+                CORSConfiguration: {
+                    CORSRules: [
+                        {
+                            AllowedHeaders: ['*'],
+                            AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
+                            AllowedOrigins: ['*'], // You can restrict this in production
+                            ExposeHeaders: [],
+                            MaxAgeSeconds: 3000
+                        }
+                    ]
+                }
+            });
+
+            // 2. Setup Public Read Policy so files can be accessed via direct URL
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: '*',
+                        Action: ['s3:GetObject'],
+                        Resource: [`arn:aws:s3:::${bucketName}/*`]
+                    }
+                ]
+            };
+
+            const policyCommand = new PutBucketPolicyCommand({
+                Bucket: bucketName,
+                Policy: JSON.stringify(policy)
+            });
+
+            await s3Client.send(corsCommand);
+            await s3Client.send(policyCommand);
+
+            console.log(`✅ S3 Bucket '${bucketName}' configured with Public Read and CORS.`);
+        } catch (error) {
+            console.error(`❌ Failed to configure S3 Bucket policies:`, error);
+        }
+    },
+
+    /**
+     * Deletes a file from the S3 bucket to save storage space.
+     * @param {string} fileKey - The exact key (path) of the file in the bucket.
+     */
+    async deleteFile(fileKey: string): Promise<void> {
+        try {
+            const command = new DeleteObjectCommand({
+                Bucket: process.env.S3_BUCKET_NAME as string,
+                Key: fileKey,
+            });
+
+            await s3Client.send(command);
+            console.log(`🗑️ Successfully deleted old file from storage: ${fileKey}`);
+        } catch (error) {
+            // We catch the error but don't throw it so it doesn't crash the main upload flow
+            console.error(`❌ Failed to delete old file (${fileKey}):`, error);
+        }
+    }
 };

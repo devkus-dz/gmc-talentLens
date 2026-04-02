@@ -19,8 +19,9 @@ class ResumeController extends BaseController<IResume> {
     }
 
     /**
-     * Uploads a resume, parses it via Gemini AI, and saves the data to MongoDB.
-     */
+         * Uploads a resume, parses it via Gemini AI, and saves the data to MongoDB.
+         * Automatically cleans up the previous resume file and database record to save storage.
+         */
     upload = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             if (!req.file || !req.file.buffer) {
@@ -35,16 +36,29 @@ class ResumeController extends BaseController<IResume> {
             const fileBuffer = req.file.buffer;
             const originalName = req.file.originalname;
             const mimeType = req.file.mimetype;
+            const userId = req.user.id;
 
             console.log(`🚀 Processing file: ${originalName} (${fileBuffer.length} bytes)`);
 
+            // --- 1. CLEANUP PHASE: Find and delete the old resume ---
+            const existingResumes = await this.repository.findAll({ userId: userId });
+            for (const oldResume of existingResumes) {
+                if (oldResume.fileKey) {
+                    // Tell RustFS to delete the physical PDF
+                    await s3Service.deleteFile(oldResume.fileKey);
+                }
+                // Delete the old record from MongoDB
+                await this.repository.delete(oldResume.id);
+            }
+
+            // --- 2. UPLOAD & PARSE PHASE ---
             const parsedAiData = await geminiService.parseResume(fileBuffer, mimeType);
             const fileKey = await s3Service.uploadResume(fileBuffer, originalName, mimeType);
 
             console.log('✅ AI Parsing and Upload Complete!');
 
             const newResume = await resumeRepository.create({
-                userId: req.user.id,
+                userId: userId,
                 fileKey: fileKey,
                 firstName: parsedAiData.firstName ?? undefined,
                 lastName: parsedAiData.lastName ?? undefined,
@@ -58,15 +72,19 @@ class ResumeController extends BaseController<IResume> {
                 improvementTip: parsedAiData.improvementTip || '',
                 experiences: parsedAiData.experiences || [],
                 education: parsedAiData.education || [],
+                languages: parsedAiData.languages || [],
+                certifications: parsedAiData.certifications || [],
             });
 
-            const previewUrl = await s3Service.getPresignedUrl(fileKey);
+            const endpoint = process.env.S3_ENDPOINT || 'http://localhost:9000';
+            const bucket = process.env.S3_BUCKET_NAME || 'talentlens-storage';
+            const documentUrl = `${endpoint}/${bucket}/${fileKey}`;
 
             res.status(201).json({
                 message: 'Resume successfully uploaded and analyzed by AI.',
                 resumeId: newResume.id,
                 parsedData: newResume,
-                documentUrl: previewUrl,
+                documentUrl: documentUrl,
             });
 
         } catch (error) {

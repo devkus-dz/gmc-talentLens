@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PersonalInfoForm from '@/components/profile/PersonalInfoForm';
 import CoreSkills from '@/components/profile/CoreSkills';
 import TagsCard from '@/components/profile/TagsCard';
@@ -27,14 +27,33 @@ export default function CandidateProfileClient({
     initialResume: any,
     initialDocumentUrl: string | null
 }) {
+    // --- FIX: Manage User State Locally to prevent UI disappearing ---
+    const [user, setUser] = useState(initialUser);
+
+    useEffect(() => {
+        const syncUser = () => {
+            const stored = localStorage.getItem('user');
+            if (stored) {
+                setUser(JSON.parse(stored));
+            }
+        };
+        // Listen for the AvatarUpload event to update the local user state!
+        window.addEventListener('user-updated', syncUser);
+        return () => window.removeEventListener('user-updated', syncUser);
+    }, []);
+
     const [resumeData, setResumeData] = useState(initialResume || null);
-    const [documentUrl, setDocumentUrl] = useState(initialResume?.documentUrl || initialResume?.fileUrl || null);
+    const [documentUrl, setDocumentUrl] = useState(initialDocumentUrl || initialResume?.documentUrl || initialResume?.fileUrl || null);
 
-    // UI States
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState(false); // Restored upload state
+    const [isUploading, setIsUploading] = useState(false);
 
-    const isRTL = resumeData?.locale === 'ar';
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
     const [skills, setSkills] = useState<string[]>(initialResume?.skills || []);
     const [tags, setTags] = useState<string[]>(initialResume?.tags || []);
@@ -53,6 +72,12 @@ export default function CandidateProfileClient({
     const [eduForm, setEduForm] = useState({ degree: '', institution: '', startDate: '', endDate: '' });
     const [editEduIndex, setEditEduIndex] = useState<number | null>(null);
     const [eduIsCurrent, setEduIsCurrent] = useState(false);
+
+    const [langForm, setLangForm] = useState({ name: '', level: 'Native / Bilingual' });
+    const [editLangIndex, setEditLangIndex] = useState<number | null>(null);
+
+    const [certForm, setCertForm] = useState({ name: '', issuer: '', date: '' });
+    const [editCertIndex, setEditCertIndex] = useState<number | null>(null);
 
     const openModal = (id: string) => { const m = document.getElementById(id) as HTMLDialogElement; if (m) m.showModal(); };
     const closeModal = (id: string) => { const m = document.getElementById(id) as HTMLDialogElement; if (m) m.close(); };
@@ -77,10 +102,10 @@ export default function CandidateProfileClient({
             await api.patch(`/resumes/${resumeData._id || resumeData.id}`, {
                 skills, tags, languages, certifications, experiences, education
             });
-            alert("Profile saved successfully!");
+            showToast("Profile saved successfully!", "success");
         } catch (error) {
             console.error("Save failed:", error);
-            alert("Failed to save profile.");
+            showToast("Failed to save profile.", "error");
         } finally {
             setIsSaving(false);
         }
@@ -131,17 +156,59 @@ export default function CandidateProfileClient({
         closeModal('edu_modal');
     };
 
-    const handleAddLanguage = () => { const name = prompt("Enter language (e.g., English):"); if (!name) return; const level = prompt("Enter proficiency level (e.g., Native):"); if (name && level) setLanguages([...languages, { name, level }]); };
-    const handleAddCert = () => { const name = prompt("Enter certification name:"); if (!name) return; const issuer = prompt("Enter issuer (e.g., Coursera):"); const date = prompt("Enter year (Optional):"); if (name && issuer) setCertifications([...certifications, { name, issuer, date }]); };
+    const openLangModal = (index: number | null = null) => {
+        setEditLangIndex(index);
+        if (index !== null) {
+            setLangForm(languages[index]);
+        } else {
+            setLangForm({ name: '', level: 'Professional Working' });
+        }
+        openModal('lang_modal');
+    };
+
+    const saveLanguage = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (editLangIndex !== null) {
+            const updated = [...languages];
+            updated[editLangIndex] = langForm;
+            setLanguages(updated);
+        } else {
+            setLanguages([...languages, langForm]);
+        }
+        closeModal('lang_modal');
+    };
+
+    const openCertModal = (index: number | null = null) => {
+        setEditCertIndex(index);
+        if (index !== null) {
+            setCertForm({
+                ...certifications[index],
+                date: formatForMonthInput(certifications[index].date)
+            });
+        } else {
+            setCertForm({ name: '', issuer: '', date: '' });
+        }
+        openModal('cert_modal');
+    };
+
+    const saveCertification = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (editCertIndex !== null) {
+            const updated = [...certifications];
+            updated[editCertIndex] = certForm;
+            setCertifications(updated);
+        } else {
+            setCertifications([...certifications, certForm]);
+        }
+        closeModal('cert_modal');
+    };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
 
             {/* LEFT COLUMN: Upload & AI Stats */}
             <div className="lg:col-span-1 flex flex-col gap-6">
                 <div className="bg-base-100 rounded-4xl p-6 shadow-sm border border-base-content/5 relative overflow-hidden">
-
-                    {/* Upload Loading Overlay */}
                     {isUploading && (
                         <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
                             <span className="loading loading-spinner loading-lg text-primary mb-4"></span>
@@ -162,8 +229,9 @@ export default function CandidateProfileClient({
                                 try {
                                     const res = await api.post('/resumes/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
                                     handleUploadSuccess(res.data);
+                                    showToast("Resume parsed successfully!", "success");
                                 } catch (err) {
-                                    alert("Upload failed. Please try again.");
+                                    showToast("Upload failed. Please try again.", "error");
                                 } finally {
                                     setIsUploading(false);
                                 }
@@ -175,7 +243,6 @@ export default function CandidateProfileClient({
                         </div>
                     </div>
 
-                    {/* Show the file name and parsed date, but REMOVED the broken View link */}
                     {(resumeData?.fileKey || documentUrl) && (
                         <div className="mt-4 p-4 rounded-2xl bg-base-200/50 flex items-center justify-between gap-3">
                             <div className="overflow-hidden">
@@ -186,6 +253,7 @@ export default function CandidateProfileClient({
                                     Parsed on {new Date(resumeData?.updatedAt || Date.now()).toLocaleDateString()}
                                 </p>
                             </div>
+                            <a href={documentUrl || `http://localhost:9000/talentlens-storage/${resumeData.fileKey}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-primary btn-outline shrink-0">View File</a>
                         </div>
                     )}
                 </div>
@@ -203,7 +271,14 @@ export default function CandidateProfileClient({
             {/* RIGHT COLUMN: Interactive Form */}
             <div className="lg:col-span-2 flex flex-col gap-6">
                 <div className="bg-base-100 rounded-4xl p-6 sm:p-8 shadow-sm border border-base-content/5">
-                    <PersonalInfoForm firstName={initialUser.firstName || resumeData?.firstName || ''} lastName={initialUser.lastName || resumeData?.lastName || ''} email={initialUser.email || resumeData?.email || ''} />
+                    <PersonalInfoForm
+                        firstName={user.firstName || resumeData?.firstName || ''}
+                        lastName={user.lastName || resumeData?.lastName || ''}
+                        email={user.email || resumeData?.email || ''}
+                        profilePictureUrl={user.profilePictureUrl}
+                        onUploadSuccess={() => showToast("Profile picture updated successfully!", "success")}
+                        onUploadError={(err) => showToast(err, "error")}
+                    />
                     <div className="divider opacity-30 my-8"></div>
 
                     {resumeData ? (
@@ -233,8 +308,8 @@ export default function CandidateProfileClient({
                             <div className="divider opacity-30 my-8"></div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <CertificationsCard certifications={certifications} onAdd={handleAddCert} onRemove={(id) => handleRemoveItem(setCertifications, id)} />
-                                <LanguagesCard languages={languages} onAdd={handleAddLanguage} onRemove={(id) => handleRemoveItem(setLanguages, id)} />
+                                <CertificationsCard certifications={certifications} onAdd={() => openCertModal(null)} onEdit={(id) => openCertModal(id)} onRemove={(id) => handleRemoveItem(setCertifications, id)} />
+                                <LanguagesCard languages={languages} onAdd={() => openLangModal(null)} onEdit={(id) => openLangModal(id)} onRemove={(id) => handleRemoveItem(setLanguages, id)} />
                             </div>
                         </>
                     ) : (
@@ -287,6 +362,72 @@ export default function CandidateProfileClient({
                         <div className="modal-action mt-2"><button type="button" onClick={() => closeModal('edu_modal')} className="btn">Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
                     </form></div>
             </dialog>
+
+            {/* Language Modal */}
+            <dialog id="lang_modal" className="modal">
+                <div className="modal-box">
+                    <h3 className="font-bold text-lg mb-4">{editLangIndex !== null ? 'Edit Language' : 'Add Language'}</h3>
+                    <form onSubmit={saveLanguage} className="flex flex-col gap-4">
+                        <label className="form-control w-full">
+                            <div className="label pb-1"><span className="label-text text-xs">Language</span></div>
+                            <input type="text" value={langForm.name} onChange={e => setLangForm({ ...langForm, name: e.target.value })} placeholder="e.g., English, French" className="input input-bordered w-full" required dir="auto" />
+                        </label>
+                        <label className="form-control w-full">
+                            <div className="label pb-1"><span className="label-text text-xs">Proficiency Level</span></div>
+                            <select value={langForm.level} onChange={e => setLangForm({ ...langForm, level: e.target.value })} className="select select-bordered w-full" required dir="auto">
+                                <option value="Elementary">Elementary</option>
+                                <option value="Limited Working">Limited Working</option>
+                                <option value="Professional Working">Professional Working</option>
+                                <option value="Full Professional">Full Professional</option>
+                                <option value="Native / Bilingual">Native / Bilingual</option>
+                            </select>
+                        </label>
+                        <div className="modal-action mt-2">
+                            <button type="button" onClick={() => closeModal('lang_modal')} className="btn">Cancel</button>
+                            <button type="submit" className="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </dialog>
+
+            {/* Certification Modal */}
+            <dialog id="cert_modal" className="modal">
+                <div className="modal-box">
+                    <h3 className="font-bold text-lg mb-4">{editCertIndex !== null ? 'Edit Certification' : 'Add Certification'}</h3>
+                    <form onSubmit={saveCertification} className="flex flex-col gap-4">
+                        <label className="form-control w-full">
+                            <div className="label pb-1"><span className="label-text text-xs">Certification Name</span></div>
+                            <input type="text" value={certForm.name} onChange={e => setCertForm({ ...certForm, name: e.target.value })} placeholder="e.g., AWS Certified Developer" className="input input-bordered w-full" required dir="auto" />
+                        </label>
+                        <label className="form-control w-full">
+                            <div className="label pb-1"><span className="label-text text-xs">Issuing Organization</span></div>
+                            <input type="text" value={certForm.issuer} onChange={e => setCertForm({ ...certForm, issuer: e.target.value })} placeholder="e.g., Amazon Web Services" className="input input-bordered w-full" required dir="auto" />
+                        </label>
+                        <label className="form-control w-full">
+                            <div className="label pb-1"><span className="label-text text-xs">Issue Date (Optional)</span></div>
+                            <input type="month" value={certForm.date} onChange={e => setCertForm({ ...certForm, date: e.target.value })} className="input input-bordered w-full" dir="auto" />
+                        </label>
+                        <div className="modal-action mt-2">
+                            <button type="button" onClick={() => closeModal('cert_modal')} className="btn">Cancel</button>
+                            <button type="submit" className="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </dialog>
+
+            {/* --- Global Toast Notification --- */}
+            {toast && (
+                <div className="toast toast-top toast-end z-100 animate-fade-in-down">
+                    <div className={`alert ${toast.type === 'success' ? 'alert-success' : 'alert-error'} shadow-lg text-white font-medium flex items-center`}>
+                        {toast.type === 'success' ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        )}
+                        <span>{toast.message}</span>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

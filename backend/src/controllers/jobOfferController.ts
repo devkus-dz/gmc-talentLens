@@ -315,6 +315,9 @@ class JobOfferController extends BaseController<IJobOffer> {
     /**
      * Retrieves a paginated and dynamically filtered list of Job Offers.
      */
+    /**
+         * Retrieves a paginated and dynamically filtered list of Job Offers.
+         */
     getAllJobOffers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
@@ -333,9 +336,27 @@ class JobOfferController extends BaseController<IJobOffer> {
             if (skills) filter.requiredSkills = { $in: skills.split(',').map(s => s.trim()) };
             if (maxExperience) filter.minYearsOfExperience = { $lte: parseInt(maxExperience) };
 
-            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 }, '-applicants');
+            // FIX: Removed the invalid '-applicants' argument.
+            // ADDED: We now populate 'createdBy' so the frontend gets the Recruiter's Company Name!
+            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 }, 'createdBy');
 
-            res.status(200).json(result);
+            // Map over the results to safely remove the applicants array and extract the company name
+            const safeData = result.data.map(job => {
+                const jobObj = job.toObject ? job.toObject() : job;
+                delete jobObj.applicants; // Hide applicants from the public feed
+
+                // Extract the populated companyName so the frontend JobCard can display it
+                if (jobObj.createdBy && (jobObj.createdBy as any).companyName) {
+                    jobObj.companyName = (jobObj.createdBy as any).companyName;
+                }
+
+                return jobObj;
+            });
+
+            res.status(200).json({
+                ...result,
+                data: safeData
+            });
         } catch (error) {
             console.error('Fetch Jobs Error:', error);
             res.status(500).json({ message: 'Internal server error while fetching jobs.' });
