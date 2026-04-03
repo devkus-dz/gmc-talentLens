@@ -321,45 +321,52 @@ class JobOfferController extends BaseController<IJobOffer> {
     getAllJobOffers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 10;
+            const limit = parseInt(req.query.limit as string) || 20;
             const search = req.query.search as string;
-            const skills = req.query.skills as string;
-            const maxExperience = req.query.maxExperience as string;
 
             const filter: any = {};
 
-            if (!req.user || req.user.role !== 'ADMIN') {
-                filter.status = 'PUBLISHED';
+            if (search) {
+                const searchRegex = { $regex: search, $options: 'i' };
+
+                filter.$or = [
+                    { title: searchRegex },
+                    { companyName: searchRegex },
+                    { requiredSkills: searchRegex },
+                    { tags: searchRegex },
+                    { location: searchRegex }
+                ];
             }
 
-            if (search) filter.title = { $regex: search, $options: 'i' };
-            if (skills) filter.requiredSkills = { $in: skills.split(',').map(s => s.trim()) };
-            if (maxExperience) filter.minYearsOfExperience = { $lte: parseInt(maxExperience) };
+            // Fetch paginated results from your repository
+            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 });
 
-            // FIX: Removed the invalid '-applicants' argument.
-            // ADDED: We now populate 'createdBy' so the frontend gets the Recruiter's Company Name!
-            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 }, 'createdBy');
-
-            // Map over the results to safely remove the applicants array and extract the company name
-            const safeData = result.data.map(job => {
-                const jobObj = job.toObject ? job.toObject() : job;
-                delete jobObj.applicants; // Hide applicants from the public feed
-
-                // Extract the populated companyName so the frontend JobCard can display it
-                if (jobObj.createdBy && (jobObj.createdBy as any).companyName) {
-                    jobObj.companyName = (jobObj.createdBy as any).companyName;
-                }
-
-                return jobObj;
-            });
-
-            res.status(200).json({
-                ...result,
-                data: safeData
-            });
+            res.status(200).json(result);
         } catch (error) {
             console.error('Fetch Jobs Error:', error);
             res.status(500).json({ message: 'Internal server error while fetching jobs.' });
+        }
+    };
+
+    /**
+     * Fetch a single job offer by its ID.
+     */
+    getJobById = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+
+            // Find the job using your repository
+            const job = await this.repository.findById(id as string);
+
+            if (!job) {
+                res.status(404).json({ message: 'Job not found.' });
+                return;
+            }
+
+            res.status(200).json(job);
+        } catch (error) {
+            console.error('Fetch Job By ID Error:', error);
+            res.status(500).json({ message: 'Internal server error while fetching the job.' });
         }
     };
 
@@ -390,6 +397,45 @@ class JobOfferController extends BaseController<IJobOffer> {
         } catch (error) {
             console.error('Fetch My Applications Error:', error);
             res.status(500).json({ message: 'Internal server error while fetching your applications.' });
+        }
+    };
+
+    /**
+     * Withdraw an application from a job offer.
+     * Prevents withdrawal if the job offer is already closed.
+     */
+    withdrawApplication = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
+            // 1. Find the job
+            const job = await this.repository.findById(id as string);
+
+            if (!job) {
+                res.status(404).json({ message: 'Job not found.' });
+                return;
+            }
+
+            // 2. Safely check the condition: Is the job closed?
+            const currentStatus = job.status?.toUpperCase();
+            if (currentStatus === 'CLOSED' || job.isActive === false) {
+                res.status(400).json({ message: 'You cannot withdraw from a job that is already closed.' });
+                return;
+            }
+
+            // 3. Remove the candidate from the applicants array safely
+            job.applicants = job.applicants.filter((app: any) => {
+                const candidateId = app.candidate ? app.candidate.toString() : app.toString();
+                return candidateId !== userId;
+            });
+
+            await job.save();
+
+            res.status(200).json({ message: 'Application successfully withdrawn.' });
+        } catch (error) {
+            console.error('Withdrawal Error:', error);
+            res.status(500).json({ message: 'Internal server error while withdrawing application.' });
         }
     };
 }

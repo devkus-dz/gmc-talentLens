@@ -34,20 +34,13 @@ const s3Client = new S3Client({
 export const s3Service = {
     /**
      * Uploads a file buffer to the S3 bucket and returns the unique file key.
-     * @param {Buffer} fileBuffer - The binary data of the file (usually from multer).
-     * @param {string} originalName - The original name of the uploaded file (e.g., 'resume.pdf').
-     * @param {string} mimeType - The MIME type of the file (e.g., 'application/pdf').
-     * @returns {Promise<string>} The unique key (filename) generated for the S3 bucket.
-     * @throws {Error} If the upload process fails.
      */
     async uploadResume(fileBuffer: Buffer, originalName: string, mimeType: string): Promise<string> {
         try {
-            // Generate a secure, unique filename to prevent overwriting existing files
             const fileExtension = originalName.split('.').pop();
             const uniqueId = crypto.randomBytes(16).toString('hex');
             const fileKey = `candidates/${uniqueId}.${fileExtension}`;
 
-            // Prepare the upload command
             const command = new PutObjectCommand({
                 Bucket: process.env.S3_BUCKET_NAME as string,
                 Key: fileKey,
@@ -55,9 +48,7 @@ export const s3Service = {
                 ContentType: mimeType,
             });
 
-            // Send to RustFS
             await s3Client.send(command);
-
             return fileKey;
         } catch (error) {
             console.error('S3 Upload Error:', error);
@@ -67,10 +58,6 @@ export const s3Service = {
 
     /**
      * Generates a temporary, secure URL to read or download a file from the S3 bucket.
-     * This is useful for keeping the bucket private but allowing the frontend to view the PDF.
-     * @param {string} fileKey - The unique key of the file in the S3 bucket.
-     * @param {number} expiresIn - Number of seconds until the URL expires (default: 3600s / 1 hour).
-     * @returns {Promise<string>} The presigned URL.
      */
     async getPresignedUrl(fileKey: string, expiresIn: number = 3600): Promise<string> {
         try {
@@ -79,9 +66,7 @@ export const s3Service = {
                 Key: fileKey,
             });
 
-            // Generate a URL that is valid for the specified duration
-            const url = await getSignedUrl(s3Client, command, { expiresIn });
-            return url;
+            return await getSignedUrl(s3Client, command, { expiresIn });
         } catch (error) {
             console.error('S3 Presigned URL Error:', error);
             throw new Error('Failed to generate file URL.');
@@ -89,18 +74,12 @@ export const s3Service = {
     },
 
     /**
-     * Uploads a profile image buffer to the S3 bucket.
-     * @param {Buffer} fileBuffer - The binary data of the image.
-     * @param {string} originalName - The original name of the image.
-     * @param {string} mimeType - The MIME type (e.g., 'image/jpeg').
-     * @returns {Promise<string>} The unique key (filename) generated.
+     * Uploads a user profile image buffer to the S3 bucket.
      */
     async uploadProfileImage(fileBuffer: Buffer, originalName: string, mimeType: string): Promise<string> {
         try {
             const fileExtension = originalName.split('.').pop();
             const uniqueId = crypto.randomBytes(16).toString('hex');
-
-            // Notice the 'profile-images/' prefix to put it in the right "folder"
             const fileKey = `profile-images/${uniqueId}.${fileExtension}`;
 
             const command = new PutObjectCommand({
@@ -119,13 +98,37 @@ export const s3Service = {
     },
 
     /**
-     * Call this once when the server starts to unlock the bucket for the frontend!
-     * Applies Public Read and CORS policies so frontend images and PDFs load correctly.
+     * NEW: Uploads a company logo to the S3 bucket in a dedicated folder.
+     */
+    async uploadCompanyLogo(fileBuffer: Buffer, originalName: string, mimeType: string): Promise<string> {
+        try {
+            const fileExtension = originalName.split('.').pop();
+            const uniqueId = crypto.randomBytes(16).toString('hex');
+
+            // Store explicitly in the company-images folder
+            const fileKey = `company-images/${uniqueId}.${fileExtension}`;
+
+            const command = new PutObjectCommand({
+                Bucket: process.env.S3_BUCKET_NAME as string,
+                Key: fileKey,
+                Body: fileBuffer,
+                ContentType: mimeType,
+            });
+
+            await s3Client.send(command);
+            return fileKey;
+        } catch (error) {
+            console.error('S3 Company Logo Upload Error:', error);
+            throw new Error('Failed to upload company logo to storage.');
+        }
+    },
+
+    /**
+     * Call this once when the server starts to unlock the bucket for the frontend.
      */
     async configureBucket(): Promise<void> {
         const bucketName = process.env.S3_BUCKET_NAME as string;
         try {
-            // 1. Setup CORS so Next.js (localhost:3000) can load the images
             const corsCommand = new PutBucketCorsCommand({
                 Bucket: bucketName,
                 CORSConfiguration: {
@@ -133,7 +136,7 @@ export const s3Service = {
                         {
                             AllowedHeaders: ['*'],
                             AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-                            AllowedOrigins: ['*'], // You can restrict this in production
+                            AllowedOrigins: ['*'],
                             ExposeHeaders: [],
                             MaxAgeSeconds: 3000
                         }
@@ -141,7 +144,6 @@ export const s3Service = {
                 }
             });
 
-            // 2. Setup Public Read Policy so files can be accessed via direct URL
             const policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -169,8 +171,7 @@ export const s3Service = {
     },
 
     /**
-     * Deletes a file from the S3 bucket to save storage space.
-     * @param {string} fileKey - The exact key (path) of the file in the bucket.
+     * Deletes any file from the S3 bucket using its exact path key.
      */
     async deleteFile(fileKey: string): Promise<void> {
         try {
@@ -182,7 +183,6 @@ export const s3Service = {
             await s3Client.send(command);
             console.log(`🗑️ Successfully deleted old file from storage: ${fileKey}`);
         } catch (error) {
-            // We catch the error but don't throw it so it doesn't crash the main upload flow
             console.error(`❌ Failed to delete old file (${fileKey}):`, error);
         }
     }

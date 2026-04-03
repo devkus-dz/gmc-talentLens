@@ -7,97 +7,47 @@ import { uploadMiddleware } from '../middlewares/uploadMiddleware';
 const router = Router();
 
 // ==========================================
-// 1. STATIC & SPECIFIC ROUTES (Must go first)
+// 1. SELF-SERVICE ROUTES (Must go first)
 // ==========================================
 
-/**
- * @route GET /api/users
- * @description Get all users for the Admin panel (paginated)
- * @access Private (ADMIN)
- */
-router.get('/', protect, restrictTo('ADMIN'), userController.getAllUsers);
-
-/**
- * @route GET /api/users/saved-jobs
- * @description Get the full job details for all saved jobs
- * @access Private (Candidate)
- */
+// Get the full list of saved job details (Candidate)
 router.get('/saved-jobs', protect, userController.getSavedJobs);
 
-/**
- * Uploads a profile picture or company logo (JPEG/PNG/WEBP).
- * @name PUT /profile-picture
- * @function
- * @memberof module:routers/users
- * @inner
- * @param {string} path - Express path
- * @param {callback} middleware - Auth protection middleware
- * @param {callback} middleware - Multer file parsing middleware
- * @param {callback} middleware - Controller logic
- */
-router.put(
-    '/profile-picture',
-    protect,                                   // Authenticate user
-    uploadMiddleware.single('profilePicture'), // Parse the file into RAM
-    userController.uploadProfilePicture        // Send to S3
-);
-
-/**
- * Updates the 'Open to Work' status for candidates.
- * @name PATCH /status
- * @function
- * @memberof module:routers/users
- * @inner
- * @param {string} path - Express path
- * @param {callback} middleware - Auth protection middleware
- * @param {callback} middleware - Controller logic
- */
-router.patch('/status', protect, userController.toggleJobStatus);
-
-/**
- * Toggles saving or unsaving a job offer.
- * @name PATCH /saved-jobs/:jobId
- * @function
- * @memberof module:routers/users
- * @inner
- * @param {string} path - Express path
- * @param {callback} middleware - Auth protection middleware
- * @param {callback} middleware - Controller logic
- */
+// Toggle saving or unsaving a job offer (Candidate)
 router.patch('/saved-jobs/:jobId', protect, userController.toggleSavedJob);
 
+// Update own profile (Candidate & Recruiter)
+router.patch('/profile', protect, userController.updateProfile);
+
+// Toggle the 'Open to Work' status (Candidate)
+router.patch('/status', protect, userController.toggleJobStatus);
+
+// Upload a profile picture
+router.put(
+    '/profile-picture',
+    protect,
+    uploadMiddleware.single('profilePicture'),
+    userController.uploadProfilePicture
+);
+
 
 // ==========================================
-// 2. DYNAMIC ID ROUTES (Must go last)
+// 2. ADMIN ROUTES (Managing other users)
 // ==========================================
 
-/**
- * @route GET /api/users/:id
- * @description Get a single user by ID
- * @access Private (ADMIN)
- */
+// Get all users (paginated)
+router.get('/', protect, restrictTo('ADMIN'), userController.getAllUsers);
+
+// Get a single user by ID
 router.get('/:id', protect, restrictTo('ADMIN'), userController.getUserById);
 
-/**
- * @route PATCH /api/users/:id
- * @description Update a user's basic information
- * @access Private (ADMIN)
- */
+// Admin updates a user's basic information/role
 router.patch('/:id', protect, restrictTo('ADMIN'), userController.updateUser);
 
-/**
- * @route DELETE /api/users/:id
- * @description Permanently delete a user from the database
- * @access Private (ADMIN)
- */
-router.delete('/:id', protect, restrictTo('ADMIN'), userController.delete);
-
-/**
- * @route PATCH /api/users/:id/toggle-active
- * @description Activate or deactivate a user account
- * @access Private (ADMIN)
- */
+// Activate or deactivate a user account (Ban/Unban)
 router.patch('/:id/toggle-active', protect, restrictTo('ADMIN'), userController.toggleUserStatus);
 
+// Permanently delete a user
+router.delete('/:id', protect, restrictTo('ADMIN'), userController.delete);
 
 export default router;

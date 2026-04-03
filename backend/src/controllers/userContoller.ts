@@ -1,137 +1,87 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import User, { IUser } from '../models/User';
+import User from '../models/User';
+import Company from '../models/Company';
 import { s3Service } from '../services/s3Service';
-import { userRepository } from '../repositories/UserRepository';
-import { BaseController } from './BaseController';
 
-/**
- * Controller handling user profile updates and interactions.
- * Inherits standard CRUD from BaseController.
- */
-class UserController extends BaseController<IUser> {
-    constructor() {
-        super(userRepository);
-    }
+class UserController {
 
-    // ==========================================
-    // OVERRIDDEN CRUD METHODS (Security Filters)
-    // ==========================================
-
-    getAllUsers = async (req: AuthRequest, res: Response): Promise<void> => {
+    /**
+     * Get current logged-in user profile
+     */
+    getMe = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 10;
-            const role = req.query.role as string;
-
-            const filter: any = {};
-            if (role) filter.role = role.toUpperCase();
-
-            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 });
-
-            const safeData = result.data.map(user => {
-                const userObj = user.toObject();
-                delete userObj.passwordHash;
-                return userObj;
-            });
-
-            res.status(200).json({ ...result, data: safeData });
-        } catch (error) {
-            console.error('Fetch Users Error:', error);
-            res.status(500).json({ message: 'Internal server error.' });
-        }
-    };
-
-    getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
-        try {
-            const { id } = req.params;
-            const user = await this.repository.findById(id as string);
-
+            const user = await User.findById(req.user?.id).select('-password').populate('companyId');
             if (!user) {
-                res.status(404).json({ message: 'User not found.' });
+                res.status(404).json({ message: 'User not found' });
                 return;
             }
-
-            const userObj = user.toObject();
-            delete userObj.passwordHash;
-
-            res.status(200).json(userObj);
+            res.status(200).json({ user });
         } catch (error) {
-            console.error('Get User By ID Error:', error);
-            res.status(500).json({ message: 'Internal server error.' });
+            res.status(500).json({ message: 'Internal server error' });
         }
     };
 
-    updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
+    /**
+     * Update user profile & linked company
+     */
+    updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            const { id } = req.params;
+            const userId = req.user?.id;
+            const { firstName, lastName, phone, companyName, website, companyDescription, industry, location } = req.body;
 
-            const updateData = { ...req.body };
-            delete updateData.passwordHash;
-            delete updateData.role;
-
-            const updatedUser = await this.repository.update(id as string, updateData);
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { firstName, lastName, phone },
+                { new: true, runValidators: true }
+            ).select('-password');
 
             if (!updatedUser) {
-                res.status(404).json({ message: 'User not found.' });
+                res.status(404).json({ message: 'User not found' });
                 return;
             }
 
-            const userObj = updatedUser.toObject();
-            delete userObj.passwordHash;
+            if (updatedUser.role === 'RECRUITER' && updatedUser.companyId) {
+                const companyUpdates: any = {};
+                if (companyName) companyUpdates.name = companyName;
+                if (website) companyUpdates.website = website;
+                if (companyDescription) companyUpdates.description = companyDescription;
+                if (industry) companyUpdates.industry = industry;
+                if (location) companyUpdates.location = location;
 
-            res.status(200).json({ message: 'User updated successfully.', user: userObj });
+                if (Object.keys(companyUpdates).length > 0) {
+                    await Company.findByIdAndUpdate(updatedUser.companyId, companyUpdates);
+                }
+            }
+
+            const finalUser = await User.findById(userId).select('-password').populate('companyId');
+            res.status(200).json({ message: 'Profile updated successfully', user: finalUser });
         } catch (error) {
-            console.error('Update User Error:', error);
-            res.status(500).json({ message: 'Internal server error.' });
+            res.status(500).json({ message: 'Internal server error while updating profile.' });
         }
     };
 
-    // ==========================================
-    // CUSTOM METHODS (Specific to User Logic)
-    // ==========================================
-
-    toggleUserStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+    uploadProfilePicture = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            const { id } = req.params;
-            const user = await this.repository.findById(id as string);
-
-            if (!user) {
-                res.status(404).json({ message: 'User not found.' });
+            if (!req.file || !req.user?.id) {
+                res.status(400).json({ message: 'No image file provided.' });
                 return;
             }
 
-            const newStatus = !user.isActive;
-            await this.repository.update(id as string, { isActive: newStatus });
-
-            res.status(200).json({ message: newStatus ? 'User activated.' : 'User deactivated.', isActive: newStatus });
-        } catch (error) {
-            console.error('Toggle Status Error:', error);
-            res.status(500).json({ message: 'Internal server error.' });
-        }
-    };
-
-    getSavedJobs = async (req: AuthRequest, res: Response): Promise<void> => {
-        try {
-            const user = await User.findById(req.user?.id)
-                .populate({
-                    path: 'savedJobs',
-                    select: '-applicants'
-                })
-                .lean();
-
-            if (!user) {
-                res.status(404).json({ message: 'User not found.' });
-                return;
+            const user = await User.findById(req.user.id);
+            if (user && user.profilePictureUrl) {
+                const match = user.profilePictureUrl.match(/(profile-images\/[^?]+)/);
+                if (match && match[1]) await s3Service.deleteFile(match[1]);
             }
 
-            res.status(200).json({
-                totalSaved: user.savedJobs?.length || 0,
-                savedJobs: user.savedJobs || []
-            });
+            const fileKey = await s3Service.uploadProfileImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+            const publicUrl = `${process.env.S3_ENDPOINT || 'http://localhost:9000'}/${process.env.S3_BUCKET_NAME || 'talentlens-storage'}/${fileKey}`;
+
+            await User.findByIdAndUpdate(req.user.id, { profilePictureUrl: publicUrl });
+
+            res.status(200).json({ message: 'Profile picture uploaded successfully!', profilePictureUrl: publicUrl });
         } catch (error) {
-            console.error('Fetch Saved Jobs Error:', error);
-            res.status(500).json({ message: 'Internal server error while fetching saved jobs.' });
+            res.status(500).json({ message: 'An internal error occurred during upload.' });
         }
     };
 
@@ -141,124 +91,138 @@ class UserController extends BaseController<IUser> {
             const user = await User.findById(req.user?.id);
 
             if (!user) {
-                res.status(404).json({ message: 'User not found.' });
+                res.status(404).json({ message: 'User not found' });
                 return;
             }
 
-            if (!user.savedJobs) {
-                user.savedJobs = [];
-            }
-
-            const jobIndex = user.savedJobs.indexOf(jobId as any);
-
-            if (jobIndex > -1) {
-                user.savedJobs.splice(jobIndex, 1);
+            const isSaved = user.savedJobs?.includes(jobId as any);
+            if (isSaved) {
+                user.savedJobs = user.savedJobs?.filter((id) => id.toString() !== jobId) as any;
             } else {
-                user.savedJobs.push(jobId as any);
+                user.savedJobs?.push(jobId as any);
             }
 
             await user.save();
-
-            res.status(200).json({
-                message: jobIndex > -1 ? 'Job removed from saved list.' : 'Job saved successfully.',
-                savedJobs: user.savedJobs
-            });
+            res.status(200).json({ message: isSaved ? 'Job removed from saved list' : 'Job saved successfully', savedJobs: user.savedJobs });
         } catch (error) {
-            console.error('Saved Job Toggle Error:', error);
-            res.status(500).json({ message: 'Internal server error.' });
+            res.status(500).json({ message: 'Failed to update saved jobs' });
+        }
+    };
+
+    getSavedJobs = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const user = await User.findById(req.user?.id).populate('savedJobs');
+            if (!user) {
+                res.status(404).json({ message: 'User not found' });
+                return;
+            }
+            res.status(200).json({ data: user.savedJobs });
+        } catch (error) {
+            res.status(500).json({ message: 'Failed to fetch saved jobs' });
         }
     };
 
     toggleJobStatus = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            const { isLookingForJob } = req.body;
-
-            if (typeof isLookingForJob !== 'boolean') {
-                res.status(400).json({ message: 'Invalid status provided. Must be a boolean.' });
-                return;
-            }
-
-            const updatedUser = await User.findByIdAndUpdate(
-                req.user?.id,
-                { isLookingForJob },
-                { returnDocument: 'after' }
-            ).select('-passwordHash');
-
-            res.status(200).json({ message: 'Job search status updated.', user: updatedUser });
-        } catch (error) {
-            console.error('Job Status Update Error:', error);
-            res.status(500).json({ message: 'Internal server error.' });
-        }
-    };
-
-    /**
-         * Uploads and updates a user's profile picture.
-         * Automatically deletes the previous image from RustFS to optimize storage.
-         */
-    uploadProfilePicture = async (req: AuthRequest, res: Response): Promise<void> => {
-        try {
-            if (!req.file) {
-                res.status(400).json({ message: 'No image file provided.' });
-                return;
-            }
-
-            if (!req.user || !req.user.id) {
-                res.status(401).json({ message: 'Unauthorized. User ID missing.' });
-                return;
-            }
-
-            // --- 1. CLEANUP PHASE: Delete the old image from S3 ---
-            const user = await this.repository.findById(req.user.id);
-            if (user && user.profilePictureUrl) {
-                // The URL looks like: http://localhost:9000/talentlens-storage/profile-images/filename.jpg
-                // We use a regex to safely extract exactly "profile-images/filename.jpg"
-                const match = user.profilePictureUrl.match(/(profile-images\/[^?]+)/);
-                if (match && match[1]) {
-                    await s3Service.deleteFile(match[1]);
-                }
-            }
-
-            // --- 2. UPLOAD NEW IMAGE ---
-            const fileKey = await s3Service.uploadProfileImage(
-                req.file.buffer,
-                req.file.originalname,
-                req.file.mimetype
-            );
-
-            // Construct the clean public URL
-            const endpoint = process.env.S3_ENDPOINT || 'http://localhost:9000';
-            const bucket = process.env.S3_BUCKET_NAME || 'talentlens-storage';
-            const publicUrl = `${endpoint}/${bucket}/${fileKey}`;
-
-            // Save the new public URL to the database
-            await this.repository.update(req.user.id, { profilePictureUrl: publicUrl });
-
-            res.status(200).json({
-                message: 'Profile picture uploaded successfully!',
-                profilePictureUrl: publicUrl
-            });
-        } catch (error) {
-            console.error('Controller Error:', error);
-            res.status(500).json({ message: 'An internal error occurred during upload.' });
-        }
-    };
-
-    /**
-     * UPDATED: Removed Presigned URL logic. Now just returns the DB document.
-     */
-    getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
-        try {
-            const user = await User.findById(req.user?.id).select('-passwordHash');
-
+            const user = await User.findById(req.user?.id);
             if (!user) {
-                res.status(404).json({ message: 'User not found.' });
+                res.status(404).json({ message: 'User not found' });
                 return;
             }
-
-            res.status(200).json(user.toObject());
+            user.isLookingForJob = !user.isLookingForJob;
+            await user.save();
+            res.status(200).json({ message: 'Job search status updated', isLookingForJob: user.isLookingForJob });
         } catch (error) {
-            console.error('Fetch Profile Error:', error);
-            res.status(500).json({ message: 'Failed to retrieve user profile.' });
+            res.status(500).json({ message: 'Failed to update job status' });
+        }
+    };
+
+    // ==========================================
+    // 2. ADMIN ROUTES (Managing other users)
+    // ==========================================
+
+    getAllUsers = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 10;
+            const skip = (page - 1) * limit;
+
+            const search = req.query.search as string;
+            const query: any = {};
+            if (search) {
+                query.$or = [
+                    { firstName: { $regex: search, $options: 'i' } },
+                    { lastName: { $regex: search, $options: 'i' } },
+                    { email: { $regex: search, $options: 'i' } }
+                ];
+            }
+
+            const users = await User.find(query)
+                .select('-passwordHash')
+                .populate('companyId')
+                .skip(skip)
+                .limit(limit)
+                .sort({ createdAt: -1 });
+
+            const total = await User.countDocuments(query);
+
+            res.status(200).json({ data: users, total, page, totalPages: Math.ceil(total / limit) });
+        } catch (error) {
+            res.status(500).json({ message: 'Failed to fetch users' });
+        }
+    };
+
+    getUserById = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = await User.findById(req.params.id).select('-passwordHash').populate('companyId');
+            if (!user) {
+                res.status(404).json({ message: 'User not found' });
+                return;
+            }
+            res.status(200).json({ data: user });
+        } catch (error) {
+            res.status(500).json({ message: 'Failed to fetch user' });
+        }
+    };
+
+    updateUser = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select('-passwordHash');
+            if (!updatedUser) {
+                res.status(404).json({ message: 'User not found' });
+                return;
+            }
+            res.status(200).json({ message: 'User updated successfully', data: updatedUser });
+        } catch (error) {
+            res.status(500).json({ message: 'Failed to update user' });
+        }
+    };
+
+    delete = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = await User.findByIdAndDelete(req.params.id);
+            if (!user) {
+                res.status(404).json({ message: 'User not found' });
+                return;
+            }
+            res.status(200).json({ message: 'User deleted successfully' });
+        } catch (error) {
+            res.status(500).json({ message: 'Failed to delete user' });
+        }
+    };
+
+    toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = await User.findById(req.params.id);
+            if (!user) {
+                res.status(404).json({ message: 'User not found' });
+                return;
+            }
+            user.isActive = !user.isActive;
+            await user.save();
+            res.status(200).json({ message: `User account ${user.isActive ? 'activated' : 'deactivated'}`, isActive: user.isActive });
+        } catch (error) {
+            res.status(500).json({ message: 'Failed to toggle user status' });
         }
     };
 }

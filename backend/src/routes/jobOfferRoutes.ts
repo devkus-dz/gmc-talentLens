@@ -8,12 +8,14 @@ const router = Router();
 
 router.get('/', protect, jobOfferController.getAllJobOffers);
 router.get('/applied', protect, jobOfferController.getMyApplications);
+router.get('/:id', protect, jobOfferController.getJobById);
 
 router.post('/', protect, restrictTo('RECRUITER', 'ADMIN'), validate(createJobSchema), jobOfferController.createJobOffer);
 
 router.get('/:id/matches', protect, jobOfferController.findMatches);
-router.post('/:id/apply', protect, jobOfferController.applyForJob);
+router.post('/:id/apply', protect, restrictTo('CANDIDATE'), jobOfferController.applyForJob);
 router.get('/:id/applicants', protect, jobOfferController.getJobApplicants);
+router.delete('/:id/withdraw', protect, restrictTo('CANDIDATE'), jobOfferController.withdrawApplication);
 
 router.patch('/:id/applicants/:candidateId/status', protect, restrictTo('RECRUITER', 'ADMIN'), validate(updateApplicantStatusSchema), jobOfferController.updateApplicantStatus);
 

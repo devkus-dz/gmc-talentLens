@@ -7,6 +7,7 @@ export interface IApplicant {
 }
 
 export interface IJobOffer extends Document {
+    isActive: boolean;
     title: string;
     description: string;
     department: string;

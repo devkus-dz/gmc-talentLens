@@ -15,14 +15,12 @@ export interface IUser extends Document {
   isLookingForJob?: boolean;
   savedJobs?: mongoose.Types.ObjectId[];
 
-  companyName?: string;
-  website?: string;
-  companyDescription?: string;
-
   // --- FIELDS FOR PASSWORD RESET ---
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   isActive: boolean;
+
+  companyId?: mongoose.Types.ObjectId;
 
   createdAt: Date;
   updatedAt: Date;
@@ -50,12 +48,11 @@ const UserSchema: Schema = new Schema(
     },
     savedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'JobOffer' }],
 
-    companyName: {
-      type: String,
-      required: function (this: IUser) { return this.role === 'RECRUITER'; }
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Company',
+      default: null
     },
-    website: { type: String },
-    companyDescription: { type: String },
 
     // --- FIELDS FOR PASSWORD RESET ---
     resetPasswordToken: { type: String },

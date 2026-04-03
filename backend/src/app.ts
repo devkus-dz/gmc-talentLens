@@ -11,6 +11,7 @@ import jobOfferRoutes from './routes/jobOfferRoutes';
 import userRoutes from './routes/userRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 
 // .env variables
@@ -52,6 +53,7 @@ app.use('/api/jobs', jobOfferRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 
 export default app;

@@ -24,13 +24,8 @@ const generateToken = (userId: string): string => {
  */
 export const authController = {
     /**
-     * Registers a new user, hashes their password, and sets an HttpOnly JWT cookie.
-     * Execution Steps:
-     * 1. Extracts the shared fields (email, password, role) and role-specific fields from the request.
-     * 2. Checks if the email is already registered in the database.
-     * 3. Hashes the user's password securely using bcrypt.
-     * 4. Dynamically builds the user payload, enforcing 'companyName' for Recruiters and 'firstName/lastName' for Candidates.
-     * 5. Saves the user to the database, generates a JWT, sets it in an HttpOnly cookie, and returns the full user object.
+     * Registers a new CANDIDATE user, hashes their password, and sets an HttpOnly JWT cookie.
+     * Note: Recruiters and Admins MUST be provisioned by the system administrator.
      * * @param {Request} req - The Express request object.
      * @param {Response} res - The Express response object.
      * @returns {Promise<void>}
@@ -39,9 +34,15 @@ export const authController = {
         try {
             const {
                 email, password, role,
-                firstName, lastName,
-                companyName, website, companyDescription
+                firstName, lastName
             } = req.body;
+
+            // 1. HARD SECURITY BLOCK: Only Candidates can use public registration.
+            // (Company/Recruiter creation is strictly handled by Admin onboarding).
+            if (role === 'RECRUITER' || role === 'ADMIN') {
+                res.status(403).json({ message: 'Recruiter and Admin accounts must be provisioned by a system administrator.' });
+                return;
+            }
 
             const existingUser = await userRepository.findOne({ email });
             if (existingUser) {
@@ -49,32 +50,22 @@ export const authController = {
                 return;
             }
 
+            if (!firstName || !lastName) {
+                res.status(400).json({ message: 'First and Last name are required for registration.' });
+                return;
+            }
+
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash(password, salt);
 
-            // Dynamically construct the payload to satisfy Mongoose Validation
+            // Dynamically construct the payload. Role is forced to CANDIDATE.
             const userData: any = {
                 email,
                 passwordHash,
-                role: role || 'CANDIDATE',
+                role: 'CANDIDATE',
+                firstName,
+                lastName
             };
-
-            if (userData.role === 'RECRUITER') {
-                if (!companyName) {
-                    res.status(400).json({ message: 'Company Name is required for Recruiters.' });
-                    return;
-                }
-                userData.companyName = companyName;
-                userData.website = website;
-                userData.companyDescription = companyDescription;
-            } else {
-                if (!firstName || !lastName) {
-                    res.status(400).json({ message: 'First and Last name are required for Candidates.' });
-                    return;
-                }
-                userData.firstName = firstName;
-                userData.lastName = lastName;
-            }
 
             const newUser = await userRepository.create(userData);
             const token = generateToken(newUser.id);
@@ -94,7 +85,6 @@ export const authController = {
                     role: newUser.role,
                     firstName: newUser.firstName,
                     lastName: newUser.lastName,
-                    companyName: newUser.companyName,
                     profilePictureUrl: newUser.profilePictureUrl,
                     isLookingForJob: newUser.isLookingForJob,
                     savedJobs: newUser.savedJobs || [],
@@ -134,6 +124,11 @@ export const authController = {
 
             const isMatch = await bcrypt.compare(password, user.passwordHash);
 
+            if (!isMatch) {
+                res.status(401).json({ message: 'Invalid email or password.' });
+                return;
+            }
+
             const token = generateToken(user.id);
 
             res.cookie('jwt', token, {
@@ -151,10 +146,10 @@ export const authController = {
                     role: user.role,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    companyName: user.companyName,
                     profilePictureUrl: user.profilePictureUrl,
                     isLookingForJob: user.isLookingForJob,
                     savedJobs: user.savedJobs || [],
+                    companyId: user.companyId || null // Ensure we pass the company linkage to the frontend
                 },
             });
         } catch (error) {
@@ -200,12 +195,10 @@ export const authController = {
                 role: req.user.role,
                 firstName: req.user.firstName,
                 lastName: req.user.lastName,
-                companyName: req.user.companyName,
-                website: req.user.website,
-                companyDescription: req.user.companyDescription,
                 profilePictureUrl: req.user.profilePictureUrl,
                 isLookingForJob: req.user.isLookingForJob,
                 savedJobs: req.user.savedJobs || [],
+                companyId: req.user.companyId || null,
             }
         });
     },

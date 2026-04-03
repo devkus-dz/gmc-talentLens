@@ -1,4 +1,3 @@
-// src/services/ai/jobMatchConfig.ts
 import { SchemaType, Schema } from '@google/generative-ai';
 
 /**
@@ -36,7 +35,7 @@ export const jobMatchSchema: Schema = {
                 properties: {
                     skillsMatch: {
                         type: SchemaType.NUMBER,
-                        description: "0-100 score based strictly on overlapping required skills and technical tags."
+                        description: "0-100 score based strictly on overlapping required skills, technical tags, and language proficiency requirements."
                     },
                     experienceMatch: {
                         type: SchemaType.NUMBER,
@@ -85,4 +84,10 @@ CRITICAL SCORING RULES:
 3. Be highly critical. A 100 overall score means a perfect, unicorn fit. Most good candidates should be in the 70-85 range.
 4. If a candidate completely lacks the core required skills or is drastically under the experience requirement, their overallScore should be below 40.
 5. Write a 1-to-2 sentence explanation justifying the scores. Be direct, objective, and reference specific skills or years of experience in your explanation.
+6. STRICT LANGUAGE PROFICIENCY MAPPING: Candidates' language levels are strictly standardized to four tiers. When evaluating language requirements from the Job Offer, map them accordingly:
+   - 'Elementary' (Matches Basic/Beginner requirements)
+   - 'Limited Working' (Matches Intermediate/Conversational requirements)
+   - 'Professional Working' (Matches Fluent/Advanced requirements)
+   - 'Native / Bilingual' (Matches Native/Mother-tongue requirements)
+   Factor language discrepancies heavily into the skillsMatch and overallScore.
 `;
