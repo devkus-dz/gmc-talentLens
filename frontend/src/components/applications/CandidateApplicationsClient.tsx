@@ -48,8 +48,8 @@ export default function CandidateApplicationsClient({ initialApplications }: Can
                             key={status}
                             onClick={() => setActiveFilter(status)}
                             className={`btn btn-sm rounded-xl border-none shrink-0 ${activeFilter === status
-                                    ? 'bg-primary text-primary-content shadow-sm'
-                                    : 'bg-base-200/50 text-base-content/60 hover:bg-base-200 hover:text-base-content'
+                                ? 'bg-primary text-primary-content shadow-sm'
+                                : 'bg-base-200/50 text-base-content/60 hover:bg-base-200 hover:text-base-content'
                                 }`}
                         >
                             {status}
@@ -77,8 +77,9 @@ export default function CandidateApplicationsClient({ initialApplications }: Can
                         {displayedApplications.map((app: any) => (
                             <ApplicationCard
                                 key={app.jobId}
+                                id={app.jobId}
                                 title={app.jobTitle}
-                                company="TalentLens Partner" // Fetch real companyName from populated backend if needed
+                                company="TalentLens Partner"
                                 status={app.myStatus}
                                 appliedAt={new Date(app.appliedAt).toLocaleDateString()}
                             />

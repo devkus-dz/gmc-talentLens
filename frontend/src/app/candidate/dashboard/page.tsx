@@ -59,6 +59,7 @@ export default async function CandidateDashboard() {
                                 {appsList.slice(0, 4).map((app: any) => (
                                     <ApplicationCard
                                         key={app.jobId}
+                                        id={app.jobId}
                                         title={app.jobTitle}
                                         company="TalentLens Partner"
                                         status={app.myStatus}

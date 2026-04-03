@@ -3,10 +3,19 @@ import PageHeader from '@/components/ui/PageHeader';
 import CandidateJobsClient from '@/components/jobs/CandidateJobsClient';
 import { fetchFromServer } from '@/lib/api-server';
 
-export default async function CandidateJobsPage() {
-    // Fetch jobs, applied jobs, and the user's profile in parallel
+// Next.js passes searchParams automatically to Server Components
+export default async function CandidateJobsPage({
+    searchParams
+}: {
+    searchParams: Promise<{ search?: string }>
+}) {
+    // Await the search parameters (Next.js 15 requirement)
+    const resolvedParams = await searchParams;
+    const querySearch = resolvedParams.search ? `?search=${encodeURIComponent(resolvedParams.search)}` : '';
+
+    // Pass the querySearch to the backend route so it filters immediately on the server!
     const [jobsRes, appliedRes, authRes] = await Promise.all([
-        fetchFromServer('/jobs'),
+        fetchFromServer(`/jobs${querySearch}`),
         fetchFromServer('/jobs/applied'),
         fetchFromServer('/auth/me')
     ]);
@@ -14,12 +23,9 @@ export default async function CandidateJobsPage() {
     const jobs = Array.isArray(jobsRes) ? jobsRes : (jobsRes?.data || []);
     const appliedJobs = Array.isArray(appliedRes) ? appliedRes : (appliedRes?.data || []);
 
-    // Extract applied IDs
     const appliedJobIds = appliedJobs.map((app: any) => app.jobId || app._id || app.id);
 
-    // Extract saved IDs from the user object
     const savedJobs = authRes?.user?.savedJobs || [];
-    // Ensure we are getting the string IDs (whether backend populated them or not)
     const savedJobIds = savedJobs.map((j: any) => typeof j === 'string' ? j : (j._id || j.id));
 
     return (
@@ -29,7 +35,6 @@ export default async function CandidateJobsPage() {
                 description="Discover and apply to your next great opportunity."
             />
 
-            {/* Hand off data to the Client Wrapper */}
             <CandidateJobsClient
                 initialJobs={jobs}
                 initialAppliedIds={appliedJobIds}

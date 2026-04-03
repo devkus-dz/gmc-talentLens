@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export interface ApplicationCardProps {
     id?: string;
@@ -11,6 +12,7 @@ export interface ApplicationCardProps {
 }
 
 export default function ApplicationCard({
+    id,
     title,
     company,
     appliedAt,
@@ -19,7 +21,6 @@ export default function ApplicationCard({
     avatarInitials,
 }: ApplicationCardProps) {
 
-    // Dynamic Status Mapping based on Backend Enums
     let badgeClass = '';
     let dotClass = '';
     let accentBorder = null;
@@ -53,13 +54,11 @@ export default function ApplicationCard({
             break;
     }
 
-    return (
-        <div className="bg-base-100 rounded-2xl p-4 shadow-sm border border-base-content/5 flex items-center gap-4 relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer group">
-
+    const CardContent = (
+        <div className="bg-base-100 rounded-2xl p-4 shadow-sm border border-base-content/5 flex items-center gap-4 relative overflow-hidden hover:shadow-md transition-all hover:border-primary/20 cursor-pointer group w-full">
             {accentBorder && (
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentBorder}`}></div>
             )}
-
             <div className={`avatar ${avatarPadding}`}>
                 <div className="w-12 h-12 rounded-xl bg-base-200 text-base-content flex items-center justify-center text-xl overflow-hidden shadow-sm font-bold border border-base-content/5 group-hover:border-primary/20 transition-colors">
                     {avatarUrl ? (
@@ -69,17 +68,21 @@ export default function ApplicationCard({
                     )}
                 </div>
             </div>
-
             <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-base leading-tight truncate">{title}</h3>
+                <h3 className="font-bold text-base leading-tight truncate group-hover:text-primary transition-colors">{title}</h3>
                 <p className="text-xs text-base-content/50 mt-1 truncate">{company} • Applied {appliedAt}</p>
             </div>
-
             <div className={`badge gap-1.5 py-3 px-3 rounded-xl font-medium text-xs shrink-0 ${badgeClass}`}>
                 {dotClass && <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`}></span>}
                 {status}
             </div>
-
         </div>
     );
+
+    // If an ID is provided, make the whole card a clickable link to the Job Page!
+    if (id) {
+        return <Link href={`/candidate/jobs/${id}`} className="block w-full">{CardContent}</Link>;
+    }
+
+    return CardContent;
 }

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ThemeToggle from '../ui/ThemeToggle';
+import NotificationDropdown from './NotificationDropdown';
 import api from '@/lib/api';
 
 interface LocalUser {
@@ -20,10 +21,11 @@ export default function Navbar() {
     const [user, setUser] = useState<LocalUser | null>(null);
     const [isMounted, setIsMounted] = useState(false);
 
+    // Global Search State
+    const [searchQuery, setSearchQuery] = useState('');
+
     useEffect(() => {
         setIsMounted(true);
-
-        // Function to load user from local storage
         const loadUser = () => {
             const storedUser = localStorage.getItem('user');
             if (storedUser) {
@@ -34,13 +36,8 @@ export default function Navbar() {
                 }
             }
         };
-
-        // Initial Load
         loadUser();
-
-        // Listen for profile updates (triggered by AvatarUpload component)
         window.addEventListener('user-updated', loadUser);
-
         return () => window.removeEventListener('user-updated', loadUser);
     }, []);
 
@@ -55,6 +52,35 @@ export default function Navbar() {
             router.push('/auth/login');
         }
     };
+
+    const handleGlobalSearch = (e: React.FormEvent) => {
+        e.preventDefault(); // Prevents the page from doing a hard refresh
+
+        if (!searchQuery.trim()) return;
+
+        const query = encodeURIComponent(searchQuery.trim());
+        const currentRole = user?.role?.toUpperCase();
+
+        if (currentRole === 'RECRUITER') {
+            router.push(`/recruiter/jobs?search=${query}`);
+        } else if (currentRole === 'ADMIN') {
+            router.push(`/admin/candidates?search=${query}`);
+        } else {
+            // Default fallback to Candidate (just in case role is missing or undefined)
+            router.push(`/candidate/jobs?search=${query}`);
+        }
+
+        // Clear the navbar search box after routing
+        setSearchQuery('');
+    };
+
+    // Dynamic Placeholder text
+    let searchPlaceholder = "Search...";
+    const currentRole = user?.role?.toUpperCase();
+
+    if (currentRole === 'CANDIDATE') searchPlaceholder = "Search jobs, skills, companies...";
+    else if (currentRole === 'RECRUITER') searchPlaceholder = "Search candidates, jobs...";
+    else if (currentRole === 'ADMIN') searchPlaceholder = "Search users, candidates...";
 
     if (!isMounted) {
         return <div className="navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-50 sticky top-0 h-16"></div>;
@@ -73,18 +99,20 @@ export default function Navbar() {
                 </Link>
             </div>
 
-            {/* Center: Global Search */}
+            {/* Center: Global Search wrapped in a Form! */}
             <div className="hidden md:flex flex-none w-full max-w-md">
-                <div className="relative w-full">
+                <form onSubmit={handleGlobalSearch} className="relative w-full">
                     <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input
                         type="text"
-                        placeholder="Search jobs, skills, companies..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder={searchPlaceholder}
                         className="input w-full pl-10 bg-base-200/50 border-none focus:outline-primary/20 rounded-xl h-10 text-sm"
                     />
-                </div>
+                </form>
             </div>
 
             {/* Right: Actions & Profile */}
@@ -94,11 +122,7 @@ export default function Navbar() {
 
                 {user ? (
                     <>
-                        <button className="btn btn-ghost btn-circle btn-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-base-content/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                        </button>
+                        <NotificationDropdown />
 
                         <div className="dropdown dropdown-end ml-1 sm:ml-2 pl-2 sm:pl-4 sm:border-l border-base-content/10">
                             <div tabIndex={0} role="button" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
@@ -126,29 +150,17 @@ export default function Navbar() {
                                     <span className="text-xs text-base-content/60 font-normal truncate">{user.email}</span>
                                 </li>
                                 <div className="divider my-0"></div>
-                                <li>
-                                    <Link href={`/${user.role?.toLowerCase() || 'candidate'}/dashboard`}>Dashboard</Link>
-                                </li>
-                                <li>
-                                    <Link href={`/${user.role?.toLowerCase() || 'candidate'}/profile`}>My Profile</Link>
-                                </li>
+                                <li><Link href={`/${user.role?.toLowerCase() || 'candidate'}/dashboard`}>Dashboard</Link></li>
+                                <li><Link href={`/${user.role?.toLowerCase() || 'candidate'}/profile`}>My Profile</Link></li>
                                 <div className="divider my-0"></div>
-                                <li>
-                                    <button onClick={handleLogout} className="text-error hover:bg-error/10 hover:text-error">
-                                        Logout
-                                    </button>
-                                </li>
+                                <li><button onClick={handleLogout} className="text-error hover:bg-error/10 hover:text-error">Logout</button></li>
                             </ul>
                         </div>
                     </>
                 ) : (
                     <div className="flex items-center gap-2 ml-1 sm:ml-2 pl-2 sm:pl-4 sm:border-l border-base-content/10">
-                        <Link href="/auth/login" className="btn btn-ghost btn-sm rounded-xl">
-                            Sign In
-                        </Link>
-                        <Link href="/auth/register" className="btn btn-primary btn-sm rounded-xl">
-                            Get Started
-                        </Link>
+                        <Link href="/auth/login" className="btn btn-ghost btn-sm rounded-xl">Sign In</Link>
+                        <Link href="/auth/register" className="btn btn-primary btn-sm rounded-xl">Get Started</Link>
                     </div>
                 )}
             </div>
