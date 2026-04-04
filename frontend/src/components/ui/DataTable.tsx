@@ -1,94 +1,239 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { JSX, useState } from 'react';
 import {
-    ColumnDef,
-    flexRender,
-    getCoreRowModel,
     useReactTable,
-    getFilteredRowModel,
-    getPaginationRowModel,
+    getCoreRowModel,
+    getSortedRowModel,
+    flexRender,
+    ColumnDef,
+    SortingState,
 } from '@tanstack/react-table';
+import { Search, Filter, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
-// Generics allow this table to accept ANY data structure!
-interface DataTableProps<TData> {
-    columns: ColumnDef<TData, any>[];
-    data: TData[];
-    searchPlaceholder?: string;
-    actionButtonLabel?: string;
-    onActionClick?: () => void;
+/**
+ * @interface FilterConfig
+ * @property {string} id - The internal key for the filter.
+ * @property {string} label - The display label.
+ * @property {'select' | 'date-range'} type - The type of filter input.
+ * @property {{label: string, value: string}[]} [options] - Values for select type.
+ */
+export interface FilterConfig {
+    id: string;
+    label: string;
+    type: 'select' | 'date-range';
+    options?: { label: string; value: string }[];
 }
 
+/**
+ * @interface DataTableProps
+ * @template TData
+ */
+export interface DataTableProps<TData> {
+    columns: ColumnDef<TData, any>[];
+    data: TData[];
+    initialSearchValue?: string;
+    onSearchSubmit?: (val: string) => void;
+    filterConfigs?: FilterConfig[];
+    onFilterSubmit?: (filters: Record<string, any>) => void;
+    totalRecords?: number;
+    pageIndex?: number;
+    pageSize?: number;
+    onPageChange?: (page: number) => void;
+    onPageSizeChange?: (size: number) => void;
+}
+
+/**
+ * Advanced Data Table supporting sorting, pagination, and multi-format filtering.
+ * @component
+ * @template TData
+ * @param {DataTableProps<TData>} props
+ * @returns {JSX.Element}
+ */
 export default function DataTable<TData>({
     columns,
     data,
-    searchPlaceholder = "Search...",
-    actionButtonLabel,
-    onActionClick
-}: DataTableProps<TData>) {
-    const [globalFilter, setGlobalFilter] = useState('');
+    initialSearchValue = '',
+    onSearchSubmit,
+    filterConfigs = [],
+    onFilterSubmit,
+    totalRecords = 0,
+    pageIndex = 1,
+    pageSize = 10,
+    onPageChange,
+    onPageSizeChange
+}: DataTableProps<TData>): JSX.Element {
+    const [localSearch, setLocalSearch] = useState<string>(initialSearchValue);
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [localFilters, setLocalFilters] = useState<Record<string, any>>({});
 
     const table = useReactTable({
         data,
         columns,
+        state: { sorting },
+        onSortingChange: setSorting,
         getCoreRowModel: getCoreRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        state: {
-            globalFilter,
-        },
-        onGlobalFilterChange: setGlobalFilter,
+        getSortedRowModel: getSortedRowModel(),
     });
 
-    return (
-        <div className="flex flex-col gap-6">
+    /**
+     * @param {React.FormEvent} e 
+     * @returns {void}
+     */
+    const handleLocalSubmit = (e: React.FormEvent): void => {
+        e.preventDefault();
+        if (onSearchSubmit) onSearchSubmit(localSearch);
+    };
 
-            {/* Toolbar: Search and Actions */}
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <div className="relative w-full max-w-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    <input
-                        type="text"
-                        value={globalFilter ?? ''}
-                        onChange={e => setGlobalFilter(e.target.value)}
-                        placeholder={searchPlaceholder}
-                        className="input bg-base-200/50 border-none focus:outline-primary/20 rounded-xl w-full pl-11 text-sm font-medium"
-                    />
-                </div>
-                <div className="flex gap-3 w-full sm:w-auto shrink-0">
-                    <button className="btn btn-outline border-base-content/10 bg-base-200/30 hover:bg-base-200 rounded-xl flex-1 sm:flex-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
-                        Filter
-                    </button>
-                    {actionButtonLabel && (
-                        <button onClick={onActionClick} className="btn btn-primary rounded-xl flex-1 sm:flex-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                            {actionButtonLabel}
+    /**
+     * @param {string} key 
+     * @param {any} value 
+     * @returns {void}
+     */
+    const handleFilterChange = (key: string, value: any): void => {
+        setLocalFilters(prev => ({ ...prev, [key]: value }));
+    };
+
+    /**
+     * @returns {void}
+     */
+    const applyFilters = (): void => {
+        if (onFilterSubmit) onFilterSubmit(localFilters);
+        (document.activeElement as HTMLElement)?.blur();
+    };
+
+    /**
+     * @param {React.MouseEvent} e
+     * @returns {void}
+     */
+    const clearFilters = (e: React.MouseEvent): void => {
+        e.preventDefault();
+        e.stopPropagation();
+        setLocalFilters({});
+        if (onFilterSubmit) onFilterSubmit({});
+        (document.activeElement as HTMLElement)?.blur();
+    };
+
+    return (
+        <div className="w-full flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 relative z-60">
+                {onSearchSubmit && (
+                    <form onSubmit={handleLocalSubmit} className="relative w-full sm:max-w-md group">
+                        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-base-content/40 group-focus-within:text-primary transition-colors" />
+                        <input
+                            type="text"
+                            value={localSearch}
+                            onChange={(e) => setLocalSearch(e.target.value)}
+                            placeholder="Search records..."
+                            className="input input-bordered w-full pl-12 pr-16 bg-base-100 rounded-2xl min-h-[48px]"
+                        />
+                        <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-sm rounded-xl text-primary">
+                            Search
                         </button>
-                    )}
-                </div>
+                    </form>
+                )}
+
+                {filterConfigs.length > 0 && (
+                    <div className="dropdown dropdown-end w-full sm:w-auto">
+                        <label tabIndex={0} className="btn btn-outline border-base-content/10 bg-base-100 rounded-2xl w-full sm:w-auto flex items-center gap-2 min-h-[48px]">
+                            <Filter className="w-4 h-4" />
+                            Filters
+                            <ChevronDown className="w-4 h-4 opacity-50" />
+                        </label>
+                        <div tabIndex={0} className="dropdown-content z-100 p-5 shadow-2xl bg-base-100 rounded-3xl w-80 border border-base-content/10 mt-2">
+                            <h3 className="font-bold text-sm mb-4 text-base-content/80 uppercase tracking-widest">Active Filters</h3>
+
+                            <div className="flex flex-col gap-4 max-h-[400px] overflow-y-auto pr-2">
+                                {filterConfigs.map(f => (
+                                    <div key={f.id} className="form-control">
+                                        <label className="label text-xs font-semibold opacity-70 p-0 pb-1">{f.label}</label>
+
+                                        {f.type === 'select' && (
+                                            <select
+                                                className="select select-bordered w-full rounded-xl"
+                                                value={localFilters[f.id] || ''}
+                                                onChange={e => handleFilterChange(f.id, e.target.value)}
+                                            >
+                                                <option value="">All</option>
+                                                {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                            </select>
+                                        )}
+
+                                        {f.type === 'date-range' && (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="date"
+                                                    className="input input-bordered w-full rounded-xl text-sm"
+                                                    value={localFilters[`${f.id}_from`] || ''}
+                                                    onChange={e => handleFilterChange(`${f.id}_from`, e.target.value)}
+                                                />
+                                                <span className="text-base-content/40 text-xs">to</span>
+                                                <input
+                                                    type="date"
+                                                    className="input input-bordered w-full rounded-xl text-sm"
+                                                    value={localFilters[`${f.id}_to`] || ''}
+                                                    onChange={e => handleFilterChange(`${f.id}_to`, e.target.value)}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-between items-center mt-6 pt-4 border-t border-base-content/10">
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="btn btn-ghost btn-sm text-error rounded-xl"
+                                >
+                                    Clear All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={applyFilters}
+                                    className="btn btn-primary btn-sm rounded-xl px-6"
+                                >
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* The Table */}
-            <div className="overflow-x-auto rounded-xl border border-base-content/5 thin-scrollbar">
-                <table className="table w-full border-collapse">
-                    <thead className="bg-base-200/50">
-                        {table.getHeaderGroups().map(headerGroup => (
+            <div className="overflow-x-auto w-full rounded-3xl border border-base-content/5 bg-base-100 min-h-[350px] relative z-50">
+                <table className="table w-full">
+                    <thead className="bg-base-200/40 text-base-content/60">
+                        {table.getHeaderGroups().map((headerGroup) => (
                             <tr key={headerGroup.id} className="border-b border-base-content/5">
-                                {headerGroup.headers.map(header => (
-                                    <th key={header.id} className="py-4 text-[10px] font-bold uppercase tracking-widest text-base-content/50">
-                                        {flexRender(header.column.columnDef.header, header.getContext())}
+                                {headerGroup.headers.map((header) => (
+                                    <th
+                                        key={header.id}
+                                        onClick={header.column.getToggleSortingHandler()}
+                                        className={`py-5 text-xs font-bold uppercase tracking-widest whitespace-nowrap transition-colors ${header.column.getCanSort() ? 'cursor-pointer hover:bg-base-200/50 select-none' : ''}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                                            {header.column.getCanSort() && (
+                                                <span className="text-base-content/40">
+                                                    {{
+                                                        asc: <ArrowUp className="w-3 h-3 text-primary" />,
+                                                        desc: <ArrowDown className="w-3 h-3 text-primary" />
+                                                    }[header.column.getIsSorted() as string] ?? <ArrowUpDown className="w-3 h-3" />}
+                                                </span>
+                                            )}
+                                        </div>
                                     </th>
                                 ))}
                             </tr>
                         ))}
                     </thead>
                     <tbody>
-                        {table.getRowModel().rows.length > 0 ? (
-                            table.getRowModel().rows.map(row => (
-                                <tr key={row.id} className="hover:bg-base-200/30 transition-colors border-b border-base-content/5 last:border-none">
-                                    {row.getVisibleCells().map(cell => (
-                                        <td key={cell.id} className="py-4">
+                        {table.getRowModel().rows?.length ? (
+                            table.getRowModel().rows.map((row) => (
+                                <tr key={row.id} className="hover:bg-base-200/20 border-b border-base-content/5 last:border-none">
+                                    {row.getVisibleCells().map((cell) => (
+                                        <td key={cell.id} className="py-4 text-sm">
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </td>
                                     ))}
@@ -96,8 +241,8 @@ export default function DataTable<TData>({
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={columns.length} className="h-24 text-center text-base-content/50 font-medium">
-                                    No results found.
+                                <td colSpan={columns.length} className="h-40 text-center text-base-content/50 font-medium">
+                                    No records found.
                                 </td>
                             </tr>
                         )}
@@ -105,29 +250,28 @@ export default function DataTable<TData>({
                 </table>
             </div>
 
-            {/* Pagination Footer */}
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-2 gap-4">
-                <span className="text-xs font-medium text-base-content/60">
-                    Showing page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                </span>
-                <div className="join">
-                    <button
-                        className="join-item btn btn-sm btn-outline border-base-content/10 bg-base-100 hover:bg-base-200"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        Previous
-                    </button>
-                    <button
-                        className="join-item btn btn-sm btn-primary"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        Next
-                    </button>
+            {(totalRecords > 0) && (
+                <div className="flex flex-col sm:flex-row justify-between items-center mt-2 px-2 gap-4">
+                    <div className="text-sm font-medium text-base-content/60">
+                        Showing {Math.min(((pageIndex - 1) * pageSize) + 1, totalRecords)} to {Math.min(pageIndex * pageSize, totalRecords)} of <span className="font-bold text-base-content">{totalRecords}</span> records
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <select
+                            value={pageSize}
+                            onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+                            className="select select-bordered select-sm rounded-xl font-medium"
+                        >
+                            {[10, 20, 50, 100].map(size => (
+                                <option key={size} value={size}>Show {size}</option>
+                            ))}
+                        </select>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => onPageChange?.(pageIndex - 1)} disabled={pageIndex === 1} className="btn btn-sm btn-outline rounded-xl px-4">Previous</button>
+                            <button onClick={() => onPageChange?.(pageIndex + 1)} disabled={pageIndex * pageSize >= totalRecords} className="btn btn-sm btn-outline rounded-xl px-4">Next</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
+            )}
         </div>
     );
 }

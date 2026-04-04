@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import JobOffer from '../models/JobOffer';
 import User from '../models/User';
+import Company from '../models/Company';
 
 /**
  * Controller handling chart-ready statistics for all user roles.
@@ -117,32 +118,67 @@ export const dashboardController = {
      */
     async getAdminStats(req: AuthRequest, res: Response): Promise<void> {
         try {
-            // Group Users by Role
-            const userStats = await User.aggregate([
-                { $group: { _id: '$role', count: { $sum: 1 } } }
+            // Run all heavy DB queries in parallel
+            const [
+                userStats,
+                jobStats,
+                applicationStats,
+                totalCompanies,
+                bannedUsers
+            ] = await Promise.all([
+                User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+                JobOffer.aggregate([{ $group: { _id: '$isActive', count: { $sum: 1 } } }]),
+                JobOffer.aggregate([
+                    { $project: { applicantCount: { $size: '$applicants' } } },
+                    { $group: { _id: null, total: { $sum: '$applicantCount' } } }
+                ]),
+                Company.countDocuments(),
+                User.countDocuments({ isActive: false })
             ]);
 
-            // Group Jobs by Active/Inactive
-            const jobStats = await JobOffer.aggregate([
-                { $group: { _id: '$isActive', count: { $sum: 1 } } }
-            ]);
+            // Process User Counts
+            let recruitersCount = 0;
+            let candidatesCount = 0;
+            let totalUsers = 0;
 
-            // Count total applications ever submitted
-            const applicationStats = await JobOffer.aggregate([
-                { $project: { applicantCount: { $size: '$applicants' } } },
-                { $group: { _id: null, total: { $sum: '$applicantCount' } } }
-            ]);
+            userStats.forEach(stat => {
+                totalUsers += stat.count;
+                if (stat._id === 'RECRUITER') recruitersCount = stat.count;
+                if (stat._id === 'CANDIDATE') candidatesCount = stat.count;
+            });
+
+            // Process Job Counts
+            let activeJobs = 0;
+            let inactiveJobs = 0;
+            let totalJobs = 0;
+
+            jobStats.forEach(stat => {
+                totalJobs += stat.count;
+                if (stat._id === true) activeJobs = stat.count;
+                if (stat._id === false) inactiveJobs = stat.count;
+            });
 
             res.status(200).json({
-                usersChartData: userStats.map(stat => ({
-                    role: stat._id,
-                    count: stat.count
-                })),
-                jobsChartData: jobStats.map(stat => ({
-                    isActive: stat._id,
-                    count: stat.count
-                })),
-                totalApplicationsPlatformWide: applicationStats[0]?.total || 0
+                data: {
+                    companies: { total: totalCompanies },
+                    users: {
+                        total: totalUsers,
+                        recruiters: recruitersCount,
+                        candidates: candidatesCount,
+                        banned: bannedUsers
+                    },
+                    jobs: {
+                        total: totalJobs,
+                        active: activeJobs,
+                        inactive: inactiveJobs
+                    },
+                    applications: {
+                        total: applicationStats[0]?.total || 0
+                    },
+                    // Legacy chart data kept for backward compatibility and future Analytics page
+                    usersChartData: userStats.map(stat => ({ role: stat._id, count: stat.count })),
+                    jobsChartData: jobStats.map(stat => ({ isActive: stat._id, count: stat.count }))
+                }
             });
         } catch (error) {
             console.error('Admin Stats Error:', error);

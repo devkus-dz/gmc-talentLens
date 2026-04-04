@@ -315,36 +315,44 @@ class JobOfferController extends BaseController<IJobOffer> {
     /**
      * Retrieves a paginated and dynamically filtered list of Job Offers.
      */
-    /**
-         * Retrieves a paginated and dynamically filtered list of Job Offers.
-         */
     getAllJobOffers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 20;
+            const limit = parseInt(req.query.limit as string) || 10;
+            const skip = (page - 1) * limit;
+
             const search = req.query.search as string;
 
-            const filter: any = {};
+            // 1. Catch the new filter parameter
+            const isActive = req.query.isActive as string;
+
+            const query: any = {};
+
+            // 2. Convert the string to a boolean and apply it to the Mongoose query
+            if (isActive !== undefined) {
+                query.isActive = isActive === 'true';
+            }
 
             if (search) {
-                const searchRegex = { $regex: search, $options: 'i' };
-
-                filter.$or = [
-                    { title: searchRegex },
-                    { companyName: searchRegex },
-                    { requiredSkills: searchRegex },
-                    { tags: searchRegex },
-                    { location: searchRegex }
+                query.$or = [
+                    { title: { $regex: search, $options: 'i' } },
+                    { companyName: { $regex: search, $options: 'i' } },
+                    { location: { $regex: search, $options: 'i' } },
+                    { department: { $regex: search, $options: 'i' } }
                 ];
             }
 
-            // Fetch paginated results from your repository
-            const result = await this.repository.findPaginated(filter, page, limit, { createdAt: -1 });
+            const jobs = await JobOffer.find(query)
+                .skip(skip)
+                .limit(limit)
+                .sort({ createdAt: -1 });
 
-            res.status(200).json(result);
+            const total = await JobOffer.countDocuments(query);
+
+            res.status(200).json({ data: jobs, total, page, totalPages: Math.ceil(total / limit) });
         } catch (error) {
             console.error('Fetch Jobs Error:', error);
-            res.status(500).json({ message: 'Internal server error while fetching jobs.' });
+            res.status(500).json({ message: 'Failed to fetch jobs' });
         }
     };
 

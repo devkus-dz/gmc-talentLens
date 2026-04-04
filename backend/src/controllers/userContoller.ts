@@ -3,6 +3,7 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import User from '../models/User';
 import Company from '../models/Company';
 import { s3Service } from '../services/s3Service';
+import bcrypt from 'bcryptjs';
 
 class UserController {
 
@@ -138,9 +139,13 @@ class UserController {
     };
 
     // ==========================================
-    // 2. ADMIN ROUTES (Managing other users)
+    // ADMIN ROUTES (Managing other users)
     // ==========================================
 
+    /**
+         * @route GET /api/users
+         * @description Fetches all users, with optional searching, role, and job status filtering.
+         */
     getAllUsers = async (req: Request, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
@@ -148,7 +153,22 @@ class UserController {
             const skip = (page - 1) * limit;
 
             const search = req.query.search as string;
+            const role = req.query.role as string;
+
+            // Catch the new filter parameter
+            const isLookingForJob = req.query.isLookingForJob as string;
+
             const query: any = {};
+
+            if (role) {
+                query.role = role.toUpperCase();
+            }
+
+            // Convert the string to a boolean and apply it to the Mongoose query
+            if (isLookingForJob !== undefined) {
+                query.isLookingForJob = isLookingForJob === 'true';
+            }
+
             if (search) {
                 query.$or = [
                     { firstName: { $regex: search, $options: 'i' } },
@@ -223,6 +243,46 @@ class UserController {
             res.status(200).json({ message: `User account ${user.isActive ? 'activated' : 'deactivated'}`, isActive: user.isActive });
         } catch (error) {
             res.status(500).json({ message: 'Failed to toggle user status' });
+        }
+    };
+
+    /**
+     * @route PATCH /api/users/update-password
+     * @description Securely updates the authenticated user's password.
+     * @access Private
+     */
+    updatePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { currentPassword, newPassword } = req.body;
+            const userId = req.user?.id;
+
+            if (!currentPassword || !newPassword) {
+                res.status(400).json({ message: 'Please provide both current and new passwords.' });
+                return;
+            }
+
+            const user = await User.findById(userId);
+            if (!user) {
+                res.status(404).json({ message: 'User not found.' });
+                return;
+            }
+
+            // Verify current password
+            const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+            if (!isMatch) {
+                res.status(400).json({ message: 'Incorrect current password.' });
+                return;
+            }
+
+            // Hash new password and save
+            const salt = await bcrypt.genSalt(10);
+            user.passwordHash = await bcrypt.hash(newPassword, salt);
+            await user.save();
+
+            res.status(200).json({ message: 'Password updated successfully.' });
+        } catch (error) {
+            console.error('Update Password Error:', error);
+            res.status(500).json({ message: 'Internal server error while updating password.' });
         }
     };
 }

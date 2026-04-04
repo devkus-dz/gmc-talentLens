@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { JSX, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import ThemeToggle from '../ui/ThemeToggle';
+import Logo from '../ui/Logo';
 import NotificationDropdown from './NotificationDropdown';
 import api from '@/lib/api';
+import { Menu, Search, User, Settings, LogOut } from 'lucide-react';
 
+/**
+ * @interface LocalUser
+ */
 interface LocalUser {
     id: string;
     email: string;
@@ -16,13 +21,18 @@ interface LocalUser {
     profilePictureUrl: string | null;
 }
 
-export default function Navbar() {
+/**
+ * Main application navigation bar.
+ * Includes global search routing based on the user's current module.
+ * @component
+ * @returns {JSX.Element}
+ */
+export default function Navbar(): JSX.Element | null {
     const router = useRouter();
+    const pathname = usePathname();
     const [user, setUser] = useState<LocalUser | null>(null);
-    const [isMounted, setIsMounted] = useState(false);
-
-    // Global Search State
-    const [searchQuery, setSearchQuery] = useState('');
+    const [isMounted, setIsMounted] = useState<boolean>(false);
+    const [searchQuery, setSearchQuery] = useState<string>('');
 
     useEffect(() => {
         setIsMounted(true);
@@ -41,7 +51,11 @@ export default function Navbar() {
         return () => window.removeEventListener('user-updated', loadUser);
     }, []);
 
-    const handleLogout = async () => {
+    /**
+     * @async
+     * @returns {Promise<void>}
+     */
+    const handleLogout = async (): Promise<void> => {
         try {
             await api.post('/auth/logout');
         } catch (error) {
@@ -53,34 +67,35 @@ export default function Navbar() {
         }
     };
 
-    const handleGlobalSearch = (e: React.FormEvent) => {
-        e.preventDefault(); // Prevents the page from doing a hard refresh
-
+    /**
+     * Executes global search by routing to the appropriate module's search page.
+     * @param {React.FormEvent} e 
+     * @returns {void}
+     */
+    const handleGlobalSearch = (e: React.FormEvent): void => {
+        e.preventDefault();
         if (!searchQuery.trim()) return;
 
         const query = encodeURIComponent(searchQuery.trim());
         const currentRole = user?.role?.toUpperCase();
 
-        if (currentRole === 'RECRUITER') {
+        if (currentRole === 'ADMIN') {
+            router.push(`/admin/search?q=${query}`);
+        } else if (currentRole === 'RECRUITER') {
             router.push(`/recruiter/jobs?search=${query}`);
-        } else if (currentRole === 'ADMIN') {
-            router.push(`/admin/candidates?search=${query}`);
         } else {
-            // Default fallback to Candidate (just in case role is missing or undefined)
             router.push(`/candidate/jobs?search=${query}`);
         }
 
-        // Clear the navbar search box after routing
         setSearchQuery('');
     };
 
-    // Dynamic Placeholder text
     let searchPlaceholder = "Search...";
     const currentRole = user?.role?.toUpperCase();
 
     if (currentRole === 'CANDIDATE') searchPlaceholder = "Search jobs, skills, companies...";
     else if (currentRole === 'RECRUITER') searchPlaceholder = "Search candidates, jobs...";
-    else if (currentRole === 'ADMIN') searchPlaceholder = "Search users, candidates...";
+    else if (currentRole === 'ADMIN') searchPlaceholder = "Search users, companies, jobs...";
 
     if (!isMounted) {
         return <div className="navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-50 sticky top-0 h-16"></div>;
@@ -89,22 +104,17 @@ export default function Navbar() {
     return (
         <div className="navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-50 sticky top-0 h-16">
 
-            {/* Left: Logo */}
-            <div className="flex-1 flex items-center">
-                <Link href="/" className="text-xl font-bold text-primary flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <div className="w-2 h-2 bg-base-100 rounded-full"></div>
-                    </div>
-                    TalentLens
-                </Link>
+            <div className="flex-1 flex items-center gap-2">
+                <label htmlFor="dashboard-drawer" className="btn btn-ghost btn-circle drawer-button lg:hidden text-base-content">
+                    <Menu className="w-5 h-5" />
+                </label>
+
+                <Logo />
             </div>
 
-            {/* Center: Global Search wrapped in a Form! */}
             <div className="hidden md:flex flex-none w-full max-w-md">
                 <form onSubmit={handleGlobalSearch} className="relative w-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" />
                     <input
                         type="text"
                         value={searchQuery}
@@ -112,12 +122,11 @@ export default function Navbar() {
                         placeholder={searchPlaceholder}
                         className="input w-full pl-10 bg-base-200/50 border-none focus:outline-primary/20 rounded-xl h-10 text-sm"
                     />
+                    <button type="submit" className="hidden">Search</button>
                 </form>
             </div>
 
-            {/* Right: Actions & Profile */}
             <div className="flex-1 flex justify-end items-center gap-1 sm:gap-3">
-
                 <ThemeToggle />
 
                 {user ? (
@@ -126,41 +135,53 @@ export default function Navbar() {
 
                         <div className="dropdown dropdown-end ml-1 sm:ml-2 pl-2 sm:pl-4 sm:border-l border-base-content/10">
                             <div tabIndex={0} role="button" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                                <div className="avatar placeholder">
+                                <div className="avatar placeholder border border-base-content/10 rounded-full p-0.5 hover:border-primary transition-colors">
                                     {user.profilePictureUrl ? (
-                                        <div className="w-8 h-8 rounded-full overflow-hidden">
+                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-base-200">
                                             <img alt={`${user.firstName} ${user.lastName}`} src={user.profilePictureUrl} className="object-cover w-full h-full" />
                                         </div>
                                     ) : (
-                                        <div className="bg-primary text-primary-content rounded-full w-8 h-8 flex items-center justify-center">
+                                        <div className="bg-primary/10 text-primary rounded-full w-8 h-8 flex items-center justify-center">
                                             <span className="text-xs font-bold uppercase">
                                                 {user.firstName?.charAt(0) || ''}{user.lastName?.charAt(0) || ''}
                                             </span>
                                         </div>
                                     )}
                                 </div>
-                                <span className="text-sm font-medium hidden sm:block">
+                                <span className="text-sm font-medium hidden sm:block text-base-content/80">
                                     {user.firstName} {user.lastName}
                                 </span>
                             </div>
 
-                            <ul tabIndex={0} className="mt-4 z-1 p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52 border border-base-content/10">
+                            <ul tabIndex={0} className="mt-4 z-1 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-2xl w-60 border border-base-content/10">
                                 <li className="menu-title px-4 py-2">
-                                    <span className="text-base-content font-semibold block truncate">{user.firstName} {user.lastName}</span>
-                                    <span className="text-xs text-base-content/60 font-normal truncate">{user.email}</span>
+                                    <span className="text-base-content font-bold block truncate">{user.firstName} {user.lastName}</span>
+                                    <span className="text-xs text-base-content/50 font-medium truncate">{user.email}</span>
                                 </li>
                                 <div className="divider my-0"></div>
-                                <li><Link href={`/${user.role?.toLowerCase() || 'candidate'}/dashboard`}>Dashboard</Link></li>
-                                <li><Link href={`/${user.role?.toLowerCase() || 'candidate'}/profile`}>My Profile</Link></li>
+                                <li>
+                                    <Link href={`/${user.role?.toLowerCase() || 'candidate'}/dashboard`} className="py-3 font-medium">
+                                        <Menu className="w-4 h-4 text-base-content/60" /> Dashboard
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href={`/${user.role?.toLowerCase() || 'candidate'}/profile`} className="py-3 font-medium">
+                                        <User className="w-4 h-4 text-base-content/60" /> My Profile
+                                    </Link>
+                                </li>
                                 <div className="divider my-0"></div>
-                                <li><button onClick={handleLogout} className="text-error hover:bg-error/10 hover:text-error">Logout</button></li>
+                                <li>
+                                    <button onClick={handleLogout} className="text-error py-3 font-medium hover:bg-error/10 hover:text-error">
+                                        <LogOut className="w-4 h-4" /> Logout
+                                    </button>
+                                </li>
                             </ul>
                         </div>
                     </>
                 ) : (
                     <div className="flex items-center gap-2 ml-1 sm:ml-2 pl-2 sm:pl-4 sm:border-l border-base-content/10">
-                        <Link href="/auth/login" className="btn btn-ghost btn-sm rounded-xl">Sign In</Link>
-                        <Link href="/auth/register" className="btn btn-primary btn-sm rounded-xl">Get Started</Link>
+                        <Link href="/auth/login" className="btn btn-ghost btn-sm rounded-xl font-bold">Sign In</Link>
+                        <Link href="/auth/register" className="btn btn-primary btn-sm rounded-xl shadow-sm">Get Started</Link>
                     </div>
                 )}
             </div>

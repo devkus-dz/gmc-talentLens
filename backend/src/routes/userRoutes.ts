@@ -18,6 +18,7 @@ router.patch('/saved-jobs/:jobId', protect, userController.toggleSavedJob);
 
 // Update own profile (Candidate & Recruiter)
 router.patch('/profile', protect, userController.updateProfile);
+router.patch('/update-password', protect, userController.updatePassword);
 
 // Toggle the 'Open to Work' status (Candidate)
 router.patch('/status', protect, userController.toggleJobStatus);
