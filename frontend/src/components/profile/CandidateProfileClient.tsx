@@ -111,6 +111,25 @@ export default function CandidateProfileClient({
         }
     };
 
+    const handleToggleJobStatus = async () => {
+        try {
+            const res = await api.patch('/users/status');
+
+            const updatedStatus = res.data.isLookingForJob;
+            const updatedUser = { ...user, isLookingForJob: updatedStatus };
+
+            setUser(updatedUser);
+
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            window.dispatchEvent(new Event('user-updated'));
+
+            showToast(`Status updated to ${updatedStatus ? 'Open to Work' : 'Hidden'}`, 'success');
+        } catch (error) {
+            console.error('Failed to update job status:', error);
+            showToast('Failed to update status', 'error');
+        }
+    };
+
     const saveSkill = (e: React.FormEvent) => { e.preventDefault(); if (skillInput.trim()) setSkills([...skills, skillInput.trim()]); setSkillInput(''); closeModal('skill_modal'); };
     const saveTag = (e: React.FormEvent) => { e.preventDefault(); if (tagInput.trim()) setTags([...tags, tagInput.trim()]); setTagInput(''); closeModal('tag_modal'); };
 
@@ -276,6 +295,8 @@ export default function CandidateProfileClient({
                         lastName={user.lastName || resumeData?.lastName || ''}
                         email={user.email || resumeData?.email || ''}
                         profilePictureUrl={user.profilePictureUrl}
+                        isLookingForJob={user.isLookingForJob}
+                        onToggleStatus={handleToggleJobStatus}
                         onUploadSuccess={() => showToast("Profile picture updated successfully!", "success")}
                         onUploadError={(err) => showToast(err, "error")}
                     />

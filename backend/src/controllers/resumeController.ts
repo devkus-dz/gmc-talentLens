@@ -40,7 +40,7 @@ class ResumeController extends BaseController<IResume> {
 
             console.log(`🚀 Processing file: ${originalName} (${fileBuffer.length} bytes)`);
 
-            // --- 1. CLEANUP PHASE: Find and delete the old resume ---
+            // --- CLEANUP PHASE: Find and delete the old resume ---
             const existingResumes = await this.repository.findAll({ userId: userId });
             for (const oldResume of existingResumes) {
                 if (oldResume.fileKey) {
@@ -51,7 +51,7 @@ class ResumeController extends BaseController<IResume> {
                 await this.repository.delete(oldResume.id);
             }
 
-            // --- 2. UPLOAD & PARSE PHASE ---
+            // --- UPLOAD & PARSE PHASE ---
             const parsedAiData = await geminiService.parseResume(fileBuffer, mimeType);
             const fileKey = await s3Service.uploadResume(fileBuffer, originalName, mimeType);
 
@@ -151,6 +151,29 @@ class ResumeController extends BaseController<IResume> {
             });
         } catch (error) {
             console.error('Update Resume Error:', error);
+            res.status(500).json({ message: 'Internal server error.' });
+        }
+    };
+
+    /**
+     * Retrieves the latest parsed resume for a specific user.
+     * Accessible by Admins and Recruiters.
+     */
+    getResumeByUserId = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const { userId } = req.params;
+
+            // Fetch the user's resumes, sort by newest first, and take the top 1
+            const resumes = await resumeRepository.findPaginated({ userId }, 1, 1, { createdAt: -1 });
+
+            if (!resumes.data || resumes.data.length === 0) {
+                res.status(404).json({ message: 'No resume found for this user.' });
+                return;
+            }
+
+            res.status(200).json(resumes.data[0]);
+        } catch (error) {
+            console.error('Fetch User Resume Error:', error);
             res.status(500).json({ message: 'Internal server error.' });
         }
     };

@@ -2,6 +2,7 @@ import { notificationRepository } from '../repositories/NotificationRepository';
 import Resume from '../models/Resume';
 import NotificationModel from '../models/Notification';
 import { IJobOffer } from '../models/JobOffer';
+import User from '../models/User';
 
 /**
  * Service handling the generation and dispatching of system notifications.
@@ -60,6 +61,37 @@ export const notificationService = {
             await NotificationModel.insertMany(notifications);
         } catch (error) {
             console.error('Failed to dispatch job match notifications:', error);
+        }
+    },
+
+    /**
+     * Dispatches a system-wide or alert notification to all Admin users.
+     * @param {string} title - The title of the notification.
+     * @param {string} message - The detailed message.
+     * @param {'SYSTEM' | 'ALERT' | 'INFO'} type - The category of the notification.
+     * @returns {Promise<void>}
+     */
+    async notifyAdmins(title: string, message: string, type: 'SYSTEM' | 'ALERT' | 'INFO'): Promise<void> {
+        try {
+            // Find all admin users
+            const admins = await User.find({ role: 'ADMIN' }).select('_id').lean();
+
+            if (!admins || admins.length === 0) return;
+
+            // Map out the notifications array
+            const notifications = admins.map(admin => ({
+                recipient: admin._id,
+                type: type,
+                title: title,
+                message: message,
+                link: '/admin/dashboard',
+                isRead: false
+            }));
+
+            // Bulk insert for performance
+            await NotificationModel.insertMany(notifications);
+        } catch (error) {
+            console.error('Failed to dispatch Admin notifications:', error);
         }
     }
 };

@@ -6,6 +6,7 @@ import Resume from '../models/Resume';
 import { jobOfferRepository } from '../repositories/JobOfferRepository';
 import { geminiService } from '../services/geminiService';
 import { notificationService } from '../services/notificationService';
+import User from '../models/User';
 
 class JobOfferController extends BaseController<IJobOffer> {
     constructor() {
@@ -14,6 +15,7 @@ class JobOfferController extends BaseController<IJobOffer> {
 
     /**
      * Creates a new Job Offer in the database.
+     * Automatically links the job offer to the Recruiter's company.
      */
     createJobOffer = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
@@ -22,6 +24,10 @@ class JobOfferController extends BaseController<IJobOffer> {
                 employmentType, salaryRange, minYearsOfExperience,
                 requiredSkills, tags, status
             } = req.body;
+
+            // Fetch the Recruiter's Company details
+            const user = await User.findById(req.user?.id).populate('companyId');
+            const company = user?.companyId as any;
 
             const newJobOffer = await this.repository.create({
                 title,
@@ -34,7 +40,12 @@ class JobOfferController extends BaseController<IJobOffer> {
                 requiredSkills,
                 tags,
                 status: status || 'DRAFT',
-                createdBy: req.user?.id
+                createdBy: req.user?.id,
+
+                // Attach Company Info
+                companyId: company?._id,
+                companyName: company?.name || 'TalentLens Partner',
+                companyLogo: company?.logoUrl
             });
 
             // Trigger notification asynchronously
@@ -70,13 +81,18 @@ class JobOfferController extends BaseController<IJobOffer> {
                 return;
             }
 
-            const isStatusChangeOnly = req.body.status && Object.keys(req.body).length === 1;
-
-            if (jobOffer.status === 'PUBLISHED' && !isStatusChangeOnly) {
-                res.status(400).json({
-                    message: 'Cannot modify a published job offer. Please change status to DRAFT first.'
-                });
-                return;
+            if (jobOffer.status === 'PUBLISHED') {
+                // If they are trying to change the status to DRAFT or CLOSED, allow it.
+                if (req.body.status === 'DRAFT' || req.body.status === 'CLOSED') {
+                    // Strip out all other fields from the request body 
+                    req.body = { status: req.body.status };
+                } else {
+                    // If they are trying to update fields while keeping it PUBLISHED, block it.
+                    res.status(400).json({
+                        message: 'Cannot modify a published job offer. Please change status to DRAFT first.'
+                    });
+                    return;
+                }
             }
 
             const updatedJob = await this.repository.update(id as string, req.body);
@@ -322,15 +338,26 @@ class JobOfferController extends BaseController<IJobOffer> {
             const skip = (page - 1) * limit;
 
             const search = req.query.search as string;
-
-            // 1. Catch the new filter parameter
             const isActive = req.query.isActive as string;
+
+            // --- NEW: Grab createdBy and status from the URL query ---
+            const createdBy = req.query.createdBy as string;
+            const status = req.query.status as string;
 
             const query: any = {};
 
-            // 2. Convert the string to a boolean and apply it to the Mongoose query
             if (isActive !== undefined) {
                 query.isActive = isActive === 'true';
+            }
+
+            // --- NEW: Apply the filter if a specific user ID is requested ---
+            if (createdBy) {
+                query.createdBy = createdBy;
+            }
+
+            // --- NEW: Apply status filter if requested ---
+            if (status) {
+                query.status = status;
             }
 
             if (search) {
@@ -446,6 +473,8 @@ class JobOfferController extends BaseController<IJobOffer> {
             res.status(500).json({ message: 'Internal server error while withdrawing application.' });
         }
     };
+
+
 }
 
 export const jobOfferController = new JobOfferController();

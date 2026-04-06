@@ -3,17 +3,14 @@ import PageHeader from '@/components/ui/PageHeader';
 import CandidateJobsClient from '@/components/jobs/CandidateJobsClient';
 import { fetchFromServer } from '@/lib/api-server';
 
-// Next.js passes searchParams automatically to Server Components
 export default async function CandidateJobsPage({
     searchParams
 }: {
     searchParams: Promise<{ search?: string }>
 }) {
-    // Await the search parameters (Next.js 15 requirement)
     const resolvedParams = await searchParams;
     const querySearch = resolvedParams.search ? `?search=${encodeURIComponent(resolvedParams.search)}` : '';
 
-    // Pass the querySearch to the backend route so it filters immediately on the server!
     const [jobsRes, appliedRes, authRes] = await Promise.all([
         fetchFromServer(`/jobs${querySearch}`),
         fetchFromServer('/jobs/applied'),
@@ -24,6 +21,10 @@ export default async function CandidateJobsPage({
     const appliedJobs = Array.isArray(appliedRes) ? appliedRes : (appliedRes?.data || []);
 
     const appliedJobIds = appliedJobs.map((app: any) => app.jobId || app._id || app.id);
+
+    const visibleJobs = jobs.filter((job: any) =>
+        job.status === 'PUBLISHED' || appliedJobIds.includes(job._id || job.id)
+    );
 
     const savedJobs = authRes?.user?.savedJobs || [];
     const savedJobIds = savedJobs.map((j: any) => typeof j === 'string' ? j : (j._id || j.id));
@@ -36,7 +37,7 @@ export default async function CandidateJobsPage({
             />
 
             <CandidateJobsClient
-                initialJobs={jobs}
+                initialJobs={visibleJobs}
                 initialAppliedIds={appliedJobIds}
                 initialSavedIds={savedJobIds}
             />

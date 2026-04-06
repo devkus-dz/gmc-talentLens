@@ -7,6 +7,7 @@ export interface IApplicant {
 }
 
 export interface IJobOffer extends Document {
+    id: string;
     isActive: boolean;
     title: string;
     description: string;
@@ -19,6 +20,13 @@ export interface IJobOffer extends Document {
     tags: string[];
     applicants: IApplicant[];
     createdBy: mongoose.Types.ObjectId;
+
+    // --- NEW COMPANY FIELDS ---
+    companyId?: mongoose.Types.ObjectId;
+    companyName?: string;
+    companyLogo?: string;
+    // --------------------------
+
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
     createdAt: Date;
     updatedAt: Date;
@@ -36,6 +44,7 @@ const ApplicantSchema = new Schema<IApplicant>({
 
 const JobOfferSchema: Schema = new Schema(
     {
+        isActive: { type: Boolean, default: true },
         title: { type: String, required: true },
         description: { type: String, required: true },
         department: { type: String, default: 'General' },
@@ -47,6 +56,13 @@ const JobOfferSchema: Schema = new Schema(
         tags: { type: [String], default: [] },
         applicants: { type: [ApplicantSchema], default: [] },
         createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+
+        // --- COMPANY FIELDS ---
+        companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: false },
+        companyName: { type: String, required: false },
+        companyLogo: { type: String, required: false },
+        // --------------------------
+
         status: {
             type: String,
             enum: ['DRAFT', 'PUBLISHED', 'CLOSED'],

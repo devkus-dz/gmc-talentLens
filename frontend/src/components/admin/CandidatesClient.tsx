@@ -1,15 +1,33 @@
+// frontend/src/components/admin/CandidatesClient.tsx
 "use client";
 
-import React, { useState, useMemo, JSX } from 'react';
+import React, { useMemo, JSX } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import DataTable from '@/components/ui/DataTable';
-import { Ellipsis, Printer, Eye, Mail, Phone, MapPin } from 'lucide-react';
+import { Ellipsis, Printer, Eye } from 'lucide-react';
+
+/**
+ * Interface representing the Candidate data structure.
+ * @interface CandidateData
+ */
+export interface CandidateData {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    profilePictureUrl?: string;
+    isActive?: boolean;
+    isLookingForJob?: boolean;
+    createdAt: string;
+    [key: string]: any;
+}
 
 /**
  * @interface CandidatesClientProps
  */
 interface CandidatesClientProps {
-    initialCandidates: any[];
+    initialCandidates: CandidateData[];
     currentPage: number;
     limit: number;
     totalRecords: number;
@@ -34,12 +52,14 @@ export default function CandidatesClient({
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
-
     /**
-         * Updates URL state to trigger Server Component refetch.
-         * Creates a fresh URL parameter state to cleanly remove cleared filters.
-         */
+     * Updates URL state to trigger Server Component refetch.
+     * Creates a fresh URL parameter state to cleanly remove cleared filters.
+     * @param {number} newPage 
+     * @param {number} newLimit 
+     * @param {string} newSearch 
+     * @param {Record<string, any>} activeFilters 
+     */
     const updateUrlState = (newPage: number, newLimit: number, newSearch: string, activeFilters: Record<string, any> = {}): void => {
         const params = new URLSearchParams();
         params.set('page', newPage.toString());
@@ -54,28 +74,14 @@ export default function CandidatesClient({
         router.push(`${pathname}?${params.toString()}`);
     };
 
-    /**
-     * Opens the modal containing the Candidate's detailed profile.
-     * @param {any} candidate 
-     * @returns {void}
-     */
-    const openProfileModal = (candidate: any): void => {
-        setSelectedCandidate(candidate);
-        (document.getElementById('view_candidate_modal') as HTMLDialogElement)?.showModal();
-    };
-
-    const closeModals = (): void => {
-        setSelectedCandidate(null);
-        (document.getElementById('view_candidate_modal') as HTMLDialogElement)?.close();
-    };
-
     const columns = useMemo(() => [
         {
             accessorKey: 'firstName',
             header: 'Candidate Info',
             cell: ({ row }: any) => {
-                const candidate = row.original;
+                const candidate = row.original as CandidateData;
                 const isBanned = candidate.isActive === false;
+
                 return (
                     <div className={`flex items-center gap-3 ${isBanned ? 'opacity-50 grayscale' : ''}`}>
                         <div className="avatar placeholder shrink-0">
@@ -116,6 +122,7 @@ export default function CandidatesClient({
             header: 'Actions',
             enableSorting: false,
             cell: ({ row, table }: any) => {
+                const candidate = row.original as CandidateData;
                 const totalRows = table.getRowModel().rows.length;
                 const isNearBottom = row.index >= totalRows - 2 && totalRows > 3;
 
@@ -126,14 +133,18 @@ export default function CandidatesClient({
                         </label>
                         <ul tabIndex={0} className="dropdown-content z-100 menu p-2 shadow-xl bg-base-100 rounded-2xl w-48 border border-base-content/10 mt-1 mb-1">
                             <li>
-                                <button onClick={() => openProfileModal(row.original)} className="font-medium text-primary">
-                                    <Eye className="w-4 h-4 mr-1" /> View Full Profile
-                                </button>
+                                <Link
+                                    href={`/admin/candidates/${candidate._id}`}
+                                    className="flex items-center gap-2 text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                    <Eye className="w-4 h-4" />
+                                    View Profile
+                                </Link>
                             </li>
-                            <div className="divider my-0"></div>
+                            <div className="divider my-0 opacity-30"></div>
                             <li className="disabled opacity-50">
-                                <button disabled className="font-medium cursor-not-allowed">
-                                    <Printer className="w-4 h-4 mr-1" /> Print Curriculum
+                                <button disabled className="flex items-center gap-2 font-medium cursor-not-allowed">
+                                    <Printer className="w-4 h-4" /> Print Curriculum
                                 </button>
                             </li>
                         </ul>
@@ -180,70 +191,6 @@ export default function CandidatesClient({
                     onPageSizeChange={(size) => updateUrlState(1, size, currentSearch)}
                 />
             </div>
-
-            {/* --- VIEW PROFILE MODAL --- */}
-            <dialog id="view_candidate_modal" className="modal modal-bottom sm:modal-middle">
-                <div className="modal-box p-0 max-w-2xl bg-base-100 shadow-2xl rounded-3xl overflow-hidden">
-
-                    {selectedCandidate && (
-                        <div>
-                            {/* Profile Header Banner */}
-                            <div className="bg-primary/5 p-8 border-b border-primary/10 relative">
-                                <form method="dialog">
-                                    <button className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-base-content/50" onClick={closeModals}>✕</button>
-                                </form>
-                                <div className="flex items-center gap-6">
-                                    <div className="avatar placeholder shrink-0">
-                                        {selectedCandidate.profilePictureUrl ? (
-                                            <div className="w-24 h-24 rounded-full border-4 border-base-100 shadow-sm">
-                                                <img src={selectedCandidate.profilePictureUrl} alt="Avatar" className="object-cover w-full h-full" />
-                                            </div>
-                                        ) : (
-                                            <div className="bg-primary text-primary-content rounded-full w-24 h-24 flex items-center justify-center border-4 border-base-100 shadow-sm">
-                                                <span className="text-3xl font-bold uppercase">{selectedCandidate.firstName?.charAt(0)}{selectedCandidate.lastName?.charAt(0)}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-base-content">{selectedCandidate.firstName} {selectedCandidate.lastName}</h2>
-                                        <p className="text-base-content/60 font-medium text-sm mb-2">Registered Candidate</p>
-                                        {selectedCandidate.isLookingForJob ? (
-                                            <span className="badge badge-success badge-sm badge-soft">Open to Work</span>
-                                        ) : (
-                                            <span className="badge badge-ghost badge-sm text-base-content/50">Currently Employed</span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Profile Details Body */}
-                            <div className="p-8 flex flex-col gap-6">
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-widest text-base-content/40 mb-3">Contact Information</h3>
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-3 text-sm text-base-content/80">
-                                            <Mail className="w-4 h-4 opacity-50" />
-                                            <a href={`mailto:${selectedCandidate.email}`} className="hover:text-primary transition-colors">{selectedCandidate.email}</a>
-                                        </div>
-                                        {/* Future Expansion: Add Phone / Location below once integrated into User Model */}
-                                    </div>
-                                </div>
-
-                                <div className="bg-base-200/50 rounded-2xl p-6 border border-base-content/5 text-center mt-4">
-                                    <p className="text-sm font-medium text-base-content/60">
-                                        Detailed CV and AI parsed profile view is currently under development.
-                                    </p>
-                                    <button disabled className="btn btn-outline border-base-content/20 rounded-xl mt-4 btn-sm">
-                                        <Printer className="w-4 h-4 mr-1" />
-                                        Print Curriculum (Coming Soon)
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <form method="dialog" className="modal-backdrop"><button onClick={closeModals}>close</button></form>
-            </dialog>
 
         </div>
     );

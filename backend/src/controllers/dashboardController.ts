@@ -1,47 +1,37 @@
-// src/controllers/dashboardController.ts
-import { Response } from 'express';
+// backend/src/controllers/dashboardController.ts
+import { Response, Request } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import JobOffer from '../models/JobOffer';
 import User from '../models/User';
 import Company from '../models/Company';
 
-/**
- * Controller handling chart-ready statistics for all user roles.
- * Uses MongoDB Aggregation Pipelines for high-performance counting.
- * @namespace dashboardController
- */
-export const dashboardController = {
+class DashboardController {
 
     /**
-     * CANDIDATE STATS
-     * Returns total saved jobs, total applications, and a breakdown of application statuses.
-     * Perfect for a Pie Chart (Status Breakdown) and Number Cards.
+     * @route GET /api/dashboard/candidate
+     * @description CANDIDATE STATS: Total saved jobs, total applications, and status breakdown.
      */
-    async getCandidateStats(req: AuthRequest, res: Response): Promise<void> {
+    getCandidateStats = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const candidateId = new mongoose.Types.ObjectId(req.user?.id);
 
-            // Get saved jobs count
             const user = await User.findById(candidateId).select('savedJobs');
             const totalSavedJobs = user?.savedJobs?.length || 0;
 
-            // Aggregate applications and group by Status (The Magic Mongoose Pipeline)
             const statusBreakdown = await JobOffer.aggregate([
-                { $unwind: '$applicants' }, // Deconstructs the applicants array
-                { $match: { 'applicants.candidate': candidateId } }, // Find only THIS candidate
+                { $unwind: '$applicants' },
+                { $match: { 'applicants.candidate': candidateId } },
                 {
                     $group: {
-                        _id: '$applicants.status', // Group by status (e.g., 'Interview')
-                        count: { $sum: 1 }         // Count them
+                        _id: '$applicants.status',
+                        count: { $sum: 1 }
                     }
                 }
             ]);
 
-            // 3. Calculate total applications from the breakdown
             const totalApplications = statusBreakdown.reduce((acc, curr) => acc + curr.count, 0);
 
-            // Format for frontend charts (e.g., Recharts or Chart.js)
             res.status(200).json({
                 totalSavedJobs,
                 totalApplications,
@@ -54,71 +44,78 @@ export const dashboardController = {
             console.error('Candidate Stats Error:', error);
             res.status(500).json({ message: 'Failed to load candidate dashboard stats.' });
         }
-    },
+    };
 
     /**
-     * RECRUITER STATS
-     * Returns total jobs created, total candidates received, and a status breakdown of ALL their candidates.
-     * Perfect for a Bar Chart (Pipeline Health) and Number Cards.
+     * @route GET /api/dashboard/recruiter
+     * @description RECRUITER STATS: KPIs, Pipeline Funnel, Job Status, and Traffic Timeline.
      */
-    async getRecruiterStats(req: AuthRequest, res: Response): Promise<void> {
+    getRecruiterStats = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const recruiterId = new mongoose.Types.ObjectId(req.user?.id);
 
-            // Get total jobs (Active vs Inactive)
-            const jobStats = await JobOffer.aggregate([
-                { $match: { createdBy: recruiterId } },
-                {
-                    $group: {
-                        _id: '$isActive',
-                        count: { $sum: 1 }
-                    }
-                }
-            ]);
+            // Top Level KPIs
+            const jobs = await JobOffer.find({ createdBy: recruiterId });
+            const totalJobs = jobs.length;
+            const activeJobs = jobs.filter(j => j.status === 'PUBLISHED').length;
+            const inactiveJobs = jobs.filter(j => j.status === 'DRAFT' || j.status === 'CLOSED').length;
+            const totalApplicants = jobs.reduce((sum, job) => sum + job.applicants.length, 0);
 
-            const activeJobs = jobStats.find(stat => stat._id === true)?.count || 0;
-            const inactiveJobs = jobStats.find(stat => stat._id === false)?.count || 0;
-
-            // Aggregate ALL applicants across ALL jobs owned by this recruiter
-            const pipelineBreakdown = await JobOffer.aggregate([
+            // Pipeline Funnel (Mapped to specific stages to guarantee order)
+            const pipelineRaw = await JobOffer.aggregate([
                 { $match: { createdBy: recruiterId } },
                 { $unwind: '$applicants' },
+                { $group: { _id: '$applicants.status', count: { $sum: 1 } } }
+            ]);
+            const funnelStages = ['Applied', 'In Review', 'Interview', 'Offered', 'Rejected'];
+            const pipelineChartData = funnelStages.map(stage => {
+                const found = pipelineRaw.find(p => p._id === stage);
+                return { status: stage, count: found ? found.count : 0 };
+            });
+
+            // Activity Timeline (Last 6 Months)
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            const activityRaw = await JobOffer.aggregate([
+                { $match: { createdBy: recruiterId } },
+                { $unwind: "$applicants" },
+                { $match: { "applicants.appliedAt": { $gte: sixMonthsAgo } } },
                 {
                     $group: {
-                        _id: '$applicants.status',
-                        count: { $sum: 1 }
+                        _id: { $dateToString: { format: "%Y-%m", date: "$applicants.appliedAt" } },
+                        applications: { $sum: 1 }
                     }
-                }
+                },
+                { $sort: { _id: 1 } }
             ]);
+            const activityTimeline = activityRaw.map(item => ({ month: item._id, applications: item.applications }));
 
-            const totalApplicants = pipelineBreakdown.reduce((acc, curr) => acc + curr.count, 0);
+            // 4. Job Status (Pie Chart)
+            const jobStatusRaw = await JobOffer.aggregate([
+                { $match: { createdBy: recruiterId } },
+                { $group: { _id: "$status", count: { $sum: 1 } } }
+            ]);
+            const jobStatus = jobStatusRaw.map(item => ({ name: item._id, value: item.count }));
 
             res.status(200).json({
-                jobs: {
-                    total: activeJobs + inactiveJobs,
-                    active: activeJobs,
-                    inactive: inactiveJobs
-                },
+                jobs: { total: totalJobs, active: activeJobs, inactive: inactiveJobs },
                 totalApplicants,
-                pipelineChartData: pipelineBreakdown.map(stat => ({
-                    status: stat._id,
-                    count: stat.count
-                }))
+                pipelineChartData,
+                activityTimeline,
+                jobStatus
             });
         } catch (error) {
             console.error('Recruiter Stats Error:', error);
             res.status(500).json({ message: 'Failed to load recruiter dashboard stats.' });
         }
-    },
+    };
 
     /**
-     * ADMIN STATS
-     * Returns platform-wide health metrics: User growth, Total Jobs, and overall application volume.
-     * Perfect for a macro-level overview dashboard.
+     * @route GET /api/dashboard/admin
+     * @description ADMIN STATS: Platform-wide health metrics.
      */
-    async getAdminStats(req: AuthRequest, res: Response): Promise<void> {
+    getAdminStats = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
-            // Run all heavy DB queries in parallel
             const [
                 userStats,
                 jobStats,
@@ -136,7 +133,6 @@ export const dashboardController = {
                 User.countDocuments({ isActive: false })
             ]);
 
-            // Process User Counts
             let recruitersCount = 0;
             let candidatesCount = 0;
             let totalUsers = 0;
@@ -147,7 +143,6 @@ export const dashboardController = {
                 if (stat._id === 'CANDIDATE') candidatesCount = stat.count;
             });
 
-            // Process Job Counts
             let activeJobs = 0;
             let inactiveJobs = 0;
             let totalJobs = 0;
@@ -175,7 +170,6 @@ export const dashboardController = {
                     applications: {
                         total: applicationStats[0]?.total || 0
                     },
-                    // Legacy chart data kept for backward compatibility and future Analytics page
                     usersChartData: userStats.map(stat => ({ role: stat._id, count: stat.count })),
                     jobsChartData: jobStats.map(stat => ({ isActive: stat._id, count: stat.count }))
                 }
@@ -184,5 +178,57 @@ export const dashboardController = {
             console.error('Admin Stats Error:', error);
             res.status(500).json({ message: 'Failed to load admin dashboard stats.' });
         }
-    }
-};
+    };
+
+    /**
+     * @route GET /api/dashboard/analytics
+     * @description Shared macro-analytics route for full chart pages.
+     */
+    getAnalyticsData = async (req: AuthRequest, res: Response): Promise<void> => {
+        try {
+            const userId = req.user?.id;
+            const role = req.user?.role;
+
+            const matchStage = role === 'RECRUITER'
+                ? { $match: { createdBy: new mongoose.Types.ObjectId(userId) } }
+                : { $match: {} };
+
+            const jobStatusRaw = await JobOffer.aggregate([matchStage, { $group: { _id: "$status", count: { $sum: 1 } } }]);
+            const jobStatus = jobStatusRaw.map(item => ({ name: item._id, value: item.count }));
+
+            const pipelineRaw = await JobOffer.aggregate([
+                matchStage,
+                { $unwind: "$applicants" },
+                { $group: { _id: "$applicants.status", count: { $sum: 1 } } }
+            ]);
+            const funnelStages = ['Applied', 'In Review', 'Interview', 'Offered', 'Rejected'];
+            const pipeline = funnelStages.map(stage => {
+                const found = pipelineRaw.find(p => p._id === stage);
+                return { stage, candidates: found ? found.count : 0 };
+            });
+
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            const activityRaw = await JobOffer.aggregate([
+                matchStage,
+                { $unwind: "$applicants" },
+                { $match: { "applicants.appliedAt": { $gte: sixMonthsAgo } } },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m", date: "$applicants.appliedAt" } },
+                        applications: { $sum: 1 }
+                    }
+                },
+                { $sort: { _id: 1 } }
+            ]);
+            const activityTimeline = activityRaw.map(item => ({ month: item._id, applications: item.applications }));
+
+            res.status(200).json({ jobStatus, pipeline, activityTimeline });
+        } catch (error) {
+            console.error('Analytics Aggregation Error:', error);
+            res.status(500).json({ message: 'Internal server error while fetching analytics data.' });
+        }
+    };
+}
+
+export const dashboardController = new DashboardController();

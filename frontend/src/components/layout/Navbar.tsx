@@ -102,7 +102,7 @@ export default function Navbar(): JSX.Element | null {
     }
 
     return (
-        <div className="navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-50 sticky top-0 h-16">
+        <div className="print:hidden navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-60 sticky top-0 h-16">
 
             <div className="flex-1 flex items-center gap-2">
                 <label htmlFor="dashboard-drawer" className="btn btn-ghost btn-circle drawer-button lg:hidden text-base-content">
@@ -153,7 +153,7 @@ export default function Navbar(): JSX.Element | null {
                                 </span>
                             </div>
 
-                            <ul tabIndex={0} className="mt-4 z-1 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-2xl w-60 border border-base-content/10">
+                            <ul tabIndex={0} className="mt-4 z-60 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-2xl w-60 border border-base-content/10">
                                 <li className="menu-title px-4 py-2">
                                     <span className="text-base-content font-bold block truncate">{user.firstName} {user.lastName}</span>
                                     <span className="text-xs text-base-content/50 font-medium truncate">{user.email}</span>

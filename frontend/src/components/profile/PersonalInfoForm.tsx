@@ -6,8 +6,10 @@ interface PersonalInfoFormProps {
     lastName: string;
     email: string;
     profilePictureUrl?: string | null;
+    isLookingForJob?: boolean; // NEW
     onUploadSuccess?: (newUrl: string) => void;
     onUploadError?: (error: string) => void;
+    onToggleStatus?: () => void; // NEW
 }
 
 export default function PersonalInfoForm({
@@ -15,8 +17,10 @@ export default function PersonalInfoForm({
     lastName,
     email,
     profilePictureUrl,
+    isLookingForJob = false,
     onUploadSuccess,
-    onUploadError
+    onUploadError,
+    onToggleStatus
 }: PersonalInfoFormProps) {
     return (
         <div>
@@ -67,7 +71,7 @@ export default function PersonalInfoForm({
                     />
                 </label>
 
-                {/* Email Address - Spans both columns on desktop */}
+                {/* Email Address */}
                 <label className="form-control w-full sm:col-span-2">
                     <div className="label pb-1">
                         <span className="label-text text-[10px] font-bold uppercase tracking-wider text-base-content/50">
@@ -81,6 +85,27 @@ export default function PersonalInfoForm({
                         className="input input-bordered w-full bg-base-200/30 border-base-content/10 text-base-content/60 rounded-xl text-sm font-medium cursor-not-allowed"
                     />
                 </label>
+
+                {/* NEW: Job Visibility Toggle */}
+                <div className="sm:col-span-2 mt-4 p-5 rounded-2xl border border-base-content/10 bg-base-200/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 className="font-bold text-base-content">Open to Work</h3>
+                        <p className="text-xs text-base-content/60 mt-1">
+                            When active, your profile is visible to recruiters. Turn off to hide from candidate searches.
+                        </p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-3">
+                        <span className={`text-xs font-bold uppercase ${isLookingForJob ? 'text-success' : 'text-base-content/40'}`}>
+                            {isLookingForJob ? 'Visible' : 'Hidden'}
+                        </span>
+                        <input
+                            type="checkbox"
+                            className="toggle toggle-success"
+                            checked={isLookingForJob}
+                            onChange={onToggleStatus}
+                        />
+                    </div>
+                </div>
 
             </div>
         </div>

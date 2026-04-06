@@ -31,25 +31,24 @@ export default function DashboardLayout({
     const isActive = (path: string) => pathname === path || (path !== '/' && pathname.startsWith(`${path}/`));
 
     return (
-        <div className="h-screen overflow-hidden bg-base-200/50 flex flex-col">
+        <div className="h-screen overflow-hidden print:h-auto print:overflow-visible print:bg-white bg-base-200/50 flex flex-col">
             <Navbar />
 
-            <div className="drawer lg:drawer-open flex-1 min-h-0 relative">
+            <div className="drawer lg:drawer-open flex-1 min-h-0 relative print:block print:h-auto print:overflow-visible">
                 <input id="dashboard-drawer" type="checkbox" className="drawer-toggle" />
 
                 {/* Main Scrollable Content */}
-                <div className="drawer-content overflow-y-auto p-4 lg:p-8 flex flex-col">
+                <div className="drawer-content overflow-y-auto print:overflow-visible print:h-auto p-4 lg:p-8 flex flex-col print:p-0 print:m-0">
                     {children}
                     <div className="h-8 w-full shrink-0"></div>
                 </div>
 
                 {/* Desktop Sidebar */}
-                <div className="drawer-side z-40">
+                <div className="drawer-side z-60">
                     <label htmlFor="dashboard-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
 
-                    <div className="w-72 h-full bg-base-200/30 border-r border-base-content/5 pt-24 lg:pt-8 flex flex-col pb-8">
+                    <div className="w-72 h-full bg-base-100 border-r border-base-content/5 pt-24 lg:pt-8 flex flex-col pb-8 shadow-xl lg:shadow-none">
 
-                        {/* Optional Top Content (e.g., Admin Badge) */}
                         {topSidebarContent && (
                             <div className="px-6 mb-6">
                                 {topSidebarContent}
@@ -77,7 +76,6 @@ export default function DashboardLayout({
                             })}
                         </ul>
 
-                        {/* Optional Secondary Navigation (Settings, Support) */}
                         {secondaryLinks && secondaryLinks.length > 0 && (
                             <>
                                 <div className="divider opacity-30 px-6 my-2"></div>
@@ -101,8 +99,8 @@ export default function DashboardLayout({
             </div>
 
             {/* Mobile Bottom Navigation (Only shows Primary Links) */}
-            <div className="lg:hidden bg-base-100 border-t border-base-content/5 flex flex-row w-full h-16 shrink-0 z-50">
-                {primaryLinks.slice(0, 4).map((link) => { // Limit to 4 for mobile space
+            <div className="lg:hidden bg-base-100 border-t border-base-content/5 flex flex-row w-full h-16 shrink-0 z-60">
+                {primaryLinks.slice(0, 4).map((link) => {
                     const active = isActive(link.href);
                     return (
                         <Link

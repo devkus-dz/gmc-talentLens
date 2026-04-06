@@ -26,4 +26,6 @@ router.get('/recruiter', protect, restrictTo('RECRUITER'), dashboardController.g
  */
 router.get('/admin', protect, restrictTo('ADMIN'), dashboardController.getAdminStats);
 
+router.get('/analytics', protect, restrictTo('ADMIN', 'RECRUITER'), dashboardController.getAnalyticsData);
+
 export default router;

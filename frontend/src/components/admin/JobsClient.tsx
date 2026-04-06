@@ -38,16 +38,28 @@ export default function JobsClient({
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     };
 
-    const updateUrlState = (newPage: number, newLimit: number, newSearch: string, activeFilters: Record<string, any> = {}): void => {
-        const params = new URLSearchParams();
+    const updateUrlState = (newPage: number, newLimit: number, newSearch: string, activeFilters?: Record<string, any>): void => {
+        // Clone current params so we don't lose filters when paginating or searching
+        const params = new URLSearchParams(searchParams.toString());
+
         params.set('page', newPage.toString());
         params.set('limit', newLimit.toString());
 
-        if (newSearch) params.set('search', newSearch);
+        if (newSearch) {
+            params.set('search', newSearch);
+        } else {
+            params.delete('search');
+        }
 
-        Object.keys(activeFilters).forEach(key => {
-            if (activeFilters[key]) params.set(key, activeFilters[key]);
-        });
+        if (activeFilters !== undefined) {
+            params.delete('status');
+
+            Object.keys(activeFilters).forEach(key => {
+                if (activeFilters[key]) {
+                    params.set(key, activeFilters[key]);
+                }
+            });
+        }
 
         router.push(`${pathname}?${params.toString()}`);
     };

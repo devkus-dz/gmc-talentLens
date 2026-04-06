@@ -10,8 +10,8 @@ const router = Router();
 router.use(protect);
 
 router.get('/me', restrictTo('CANDIDATE'), resumeController.getMyResume);
+router.get('/user/:userId', restrictTo('ADMIN', 'RECRUITER'), resumeController.getResumeByUserId);
 router.post('/upload', restrictTo('CANDIDATE'), uploadMiddleware.single('pdfFile'), resumeController.upload);
-
 router.patch('/:id', restrictTo('CANDIDATE', 'ADMIN'), validate(updateResumeSchema), resumeController.updateResume);
 
 export default router;

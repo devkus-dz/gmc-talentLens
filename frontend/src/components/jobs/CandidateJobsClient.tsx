@@ -29,14 +29,23 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
             setSearchTerm(query);
             setIsSearching(true);
             api.get(`/jobs?search=${encodeURIComponent(query)}`)
-                .then(res => setJobs(res.data.data || res.data))
+                .then(res => {
+                    const fetchedJobs = res.data.data || res.data;
+
+                    // --- FIX: Apply the same security filter on client-side search ---
+                    const visibleJobs = fetchedJobs.filter((job: any) =>
+                        job.status === 'PUBLISHED' || appliedIds.includes(job._id || job.id)
+                    );
+
+                    setJobs(visibleJobs);
+                })
                 .catch(error => console.error("Search failed:", error))
                 .finally(() => setIsSearching(false));
         } else {
             setSearchTerm('');
             setJobs(initialJobs);
         }
-    }, [searchParams, initialJobs]);
+    }, [searchParams, initialJobs, appliedIds]);
 
     const handleSearch = () => {
         if (searchTerm.trim()) {
@@ -100,8 +109,8 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
                     <button
                         onClick={() => setShowSavedOnly(!showSavedOnly)}
                         className={`btn rounded-2xl px-5 border border-base-content/10 flex-1 md:flex-none transition-colors shadow-sm ${showSavedOnly
-                                ? 'bg-secondary/10 text-secondary border-secondary/30 hover:bg-secondary/20'
-                                : 'bg-base-100 text-base-content/70 hover:bg-base-200'
+                            ? 'bg-secondary/10 text-secondary border-secondary/30 hover:bg-secondary/20'
+                            : 'bg-base-100 text-base-content/70 hover:bg-base-200'
                             }`}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={showSavedOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth={showSavedOnly ? "0" : "2"} className="w-5 h-5">

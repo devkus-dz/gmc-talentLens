@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 // @ts-ignore
 const pdfParse = require('pdf-parse');
+import { notificationService } from './notificationService';
 
 // Import AI Configurations
 import { resumeSchema, ParsedResumeData, RESUME_PROMPT_INSTRUCTION } from './ai/resumeConfig';
@@ -114,8 +115,20 @@ export const geminiService = {
             const result = await resumeModel.generateContent(promptParts);
             return JSON.parse(result.response.text());
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Gemini AI Resume Parsing Error:', error);
+
+            // Catch Rate Limits (429) or Quota Exceeded errors
+            const errorMessage = error.message?.toLowerCase() || '';
+            if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+                notificationService.notifyAdmins(
+                    'AI System Alert: Resume Parsing Degradation',
+                    'The Gemini AI service is rejecting requests due to rate limits or exhausted quotas. Resume parsing is currently failing.',
+                    'ALERT'
+                ).catch(console.error);
+            }
+            // ----------------------
+
             throw new Error('Failed to parse the resume using AI.');
         }
     },
@@ -150,8 +163,20 @@ export const geminiService = {
             // Sort results highest to lowest score
             return matchResults.sort((a, b) => b.scores.overallScore - a.scores.overallScore);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Gemini AI Matching Error:', error);
+
+            // --- Catch Rate Limits (429) or Quota Exceeded errors ---
+            const errorMessage = error.message?.toLowerCase() || '';
+            if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+                notificationService.notifyAdmins(
+                    'AI System Alert: Matching Algorithm Offline',
+                    'The Gemini AI service has hit rate limits or exhausted its quota. Candidate evaluation for job offers will fail until resolved.',
+                    'ALERT'
+                ).catch(console.error);
+            }
+            // ----------------------
+
             throw new Error('Failed to evaluate candidates using AI.');
         }
     }

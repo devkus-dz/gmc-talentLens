@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import Company from '../models/Company';
 import { s3Service } from '../services/s3Service';
+import { notificationService } from '../services/notificationService';
 
 class AdminController {
 
@@ -26,7 +27,6 @@ class AdminController {
                 return;
             }
 
-            // FIX 1: Explicitly type as string | undefined (not null)
             let logoUrl: string | undefined = undefined;
 
             if (req.file) {
@@ -34,21 +34,19 @@ class AdminController {
                 logoUrl = `${process.env.S3_ENDPOINT || 'http://localhost:9000'}/${process.env.S3_BUCKET_NAME || 'talentlens-storage'}/${fileKey}`;
             }
 
-            // FIX 2: Use `new Model()` + `.save()` for perfect TypeScript inference
             const newCompany = new Company({
                 name: companyName,
                 website: website || '',
                 industry: industry || '',
                 description: description || '',
                 location: location || '',
-                logoUrl: logoUrl // Now perfectly accepts string | undefined
+                logoUrl: logoUrl
             });
             await newCompany.save();
 
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
-            // newCompany._id is now perfectly recognized by TypeScript
             const newRecruiter = new User({
                 firstName,
                 lastName,
@@ -58,6 +56,14 @@ class AdminController {
                 companyId: newCompany._id
             });
             await newRecruiter.save();
+
+            // --- ADMIN NOTIFICATION TRIGGER ---
+            notificationService.notifyAdmins(
+                'New B2B Client Provisioned',
+                `Company "${newCompany.name}" and recruiter "${newRecruiter.firstName} ${newRecruiter.lastName}" have been successfully onboarded.`,
+                'SYSTEM'
+            ).catch(console.error);
+            // ----------------------------------
 
             res.status(201).json({ message: 'Provisioned successfully.', company: newCompany });
         } catch (error) {
