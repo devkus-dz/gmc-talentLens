@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { clearUserCache, clearGlobalCache } from '../middlewares/cacheMiddleware';
 import { BaseController } from './BaseController';
 import JobOffer, { IJobOffer } from '../models/JobOffer';
 import Resume from '../models/Resume';
@@ -53,6 +54,11 @@ class JobOfferController extends BaseController<IJobOffer> {
                 notificationService.notifyMatchingCandidates(newJobOffer).catch(console.error);
             }
 
+            // Clear the cache so new job shows up!
+            clearUserCache(req.user!.id);
+            // Clear the global cache so new job shows up!
+            clearGlobalCache();
+
             res.status(201).json({ message: 'Job offer created successfully', jobOffer: newJobOffer });
         } catch (error) {
             console.error('Error creating Job Offer:', error);
@@ -97,6 +103,9 @@ class JobOfferController extends BaseController<IJobOffer> {
 
             const updatedJob = await this.repository.update(id as string, req.body);
 
+            // Clear the global cache so new job shows up!
+            clearGlobalCache();
+
             res.status(200).json({ message: 'Job offer updated successfully.', jobOffer: updatedJob });
         } catch (error) {
             console.error('Update Job Offer Error:', error);
@@ -133,6 +142,9 @@ class JobOfferController extends BaseController<IJobOffer> {
             }
 
             await this.repository.delete(id as string);
+
+            // Clear the global cache so new job shows up!
+            clearGlobalCache();
 
             res.status(200).json({ message: 'Job offer permanently deleted.' });
         } catch (error) {
@@ -265,6 +277,9 @@ class JobOfferController extends BaseController<IJobOffer> {
                 }
             );
 
+            // Clear the global cache so new job shows up!
+            clearGlobalCache();
+
             res.status(200).json({ message: 'Successfully applied for the job!', jobTitle: jobOffer.title });
         } catch (error) {
             console.error('Apply for Job Error:', error);
@@ -334,6 +349,9 @@ class JobOfferController extends BaseController<IJobOffer> {
             }
 
             notificationService.notifyStatusUpdate(candidateId as string, updatedJob.title, status).catch(console.error);
+
+            // Clear the global cache so new job shows up!
+            clearGlobalCache();
 
             res.status(200).json({ message: `Candidate moved to ${status}.` });
         } catch (error) {

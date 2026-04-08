@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { clearGlobalCache, clearUserCache } from '../middlewares/cacheMiddleware';
 import User from '../models/User';
 import Company from '../models/Company';
 import { s3Service } from '../services/s3Service';
@@ -59,6 +60,10 @@ class UserController {
             }
 
             const finalUser = await User.findById(userId).select('-password').populate('companyId');
+
+            // Clear the global cache !
+            clearGlobalCache();
+
             res.status(200).json({ message: 'Profile updated successfully', user: finalUser });
         } catch (error) {
             res.status(500).json({ message: 'Internal server error while updating profile.' });
@@ -107,6 +112,10 @@ class UserController {
             }
 
             await user.save();
+
+            // Clear the global cache !
+            clearGlobalCache();
+
             res.status(200).json({ message: isSaved ? 'Job removed from saved list' : 'Job saved successfully', savedJobs: user.savedJobs });
         } catch (error) {
             res.status(500).json({ message: 'Failed to update saved jobs' });
@@ -135,6 +144,10 @@ class UserController {
             }
             user.isLookingForJob = !user.isLookingForJob;
             await user.save();
+
+            // Clear the global cache !
+            clearGlobalCache();
+
             res.status(200).json({ message: 'Job search status updated', isLookingForJob: user.isLookingForJob });
         } catch (error) {
             res.status(500).json({ message: 'Failed to update job status' });

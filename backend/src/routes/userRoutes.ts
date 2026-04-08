@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { userController } from '../controllers/userContoller';
 import { protect, restrictTo } from '../middlewares/authMiddleware';
 import { uploadMiddleware } from '../middlewares/uploadMiddleware';
+import { cacheRoute } from '../middlewares/cacheMiddleware';
 
 const router = Router();
 
@@ -37,10 +38,10 @@ router.put(
 // ==========================================
 
 // Get all users (paginated)
-router.get('/', protect, restrictTo('ADMIN', 'RECRUITER'), userController.getAllUsers);
+router.get('/', protect, cacheRoute, restrictTo('ADMIN', 'RECRUITER'), userController.getAllUsers);
 
 // Get a single user by ID
-router.get('/:id', protect, restrictTo('ADMIN', 'RECRUITER'), userController.getUserById);
+router.get('/:id', protect, cacheRoute, restrictTo('ADMIN', 'RECRUITER'), userController.getUserById);
 
 // Admin updates a user's basic information/role
 router.patch('/:id', protect, restrictTo('ADMIN'), userController.updateUser);

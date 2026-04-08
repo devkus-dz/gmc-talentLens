@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { jobOfferController } from '../controllers/jobOfferController';
 import { protect, restrictTo } from '../middlewares/authMiddleware';
 import { validate } from '../middlewares/validateMiddleware';
+import { cacheRoute } from '../middlewares/cacheMiddleware';
 import { createJobSchema, updateJobSchema, updateApplicantStatusSchema } from '../validations/jobValidation';
 
 const router = Router();
 
-router.get('/', protect, jobOfferController.getAllJobOffers);
+router.get('/', protect, cacheRoute, jobOfferController.getAllJobOffers);
 router.get('/applied', protect, jobOfferController.getMyApplications);
-router.get('/:id', protect, jobOfferController.getJobById);
+router.get('/:id', protect, cacheRoute, jobOfferController.getJobById);
 
 router.post('/', protect, restrictTo('RECRUITER', 'ADMIN'), validate(createJobSchema), jobOfferController.createJobOffer);
 
