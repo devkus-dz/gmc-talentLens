@@ -7,7 +7,7 @@ import { uploadMiddleware } from '../middlewares/uploadMiddleware';
 const router = Router();
 
 // ==========================================
-// 1. SELF-SERVICE ROUTES (Must go first)
+// SELF-SERVICE ROUTES
 // ==========================================
 
 // Get the full list of saved job details (Candidate)
@@ -33,14 +33,14 @@ router.put(
 
 
 // ==========================================
-// 2. ADMIN ROUTES (Managing other users)
+// ADMIN & RECRUITER ROUTES
 // ==========================================
 
 // Get all users (paginated)
-router.get('/', protect, restrictTo('ADMIN'), userController.getAllUsers);
+router.get('/', protect, restrictTo('ADMIN', 'RECRUITER'), userController.getAllUsers);
 
 // Get a single user by ID
-router.get('/:id', protect, restrictTo('ADMIN'), userController.getUserById);
+router.get('/:id', protect, restrictTo('ADMIN', 'RECRUITER'), userController.getUserById);
 
 // Admin updates a user's basic information/role
 router.patch('/:id', protect, restrictTo('ADMIN'), userController.updateUser);

@@ -142,7 +142,8 @@ class JobOfferController extends BaseController<IJobOffer> {
     };
 
     /**
-     * THE HYBRID MATCHING ALGORITHM (MongoDB + Gemini)
+     * THE APPLICANT MATCHING ALGORITHM (MongoDB + Gemini)
+     * Evaluates candidates who applied, and SAVES the scores to the database.
      */
     findMatches = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
@@ -154,56 +155,69 @@ class JobOfferController extends BaseController<IJobOffer> {
                 return;
             }
 
-            const minimumExperience = Math.max(0, jobOffer.minYearsOfExperience - 1);
+            // Get unique applicant IDs who haven't been scored yet
+            const candidatesNeedingEvaluation = jobOffer.applicants
+                .filter((app: any) => app.aiScore === undefined || app.aiScore === null)
+                .map((app: any) => app.candidate.toString());
 
-            const fastFilterQuery = {
-                yearsOfExperience: { $gte: minimumExperience },
-                $or: [
-                    { tags: { $in: jobOffer.tags } },
-                    { skills: { $in: jobOffer.requiredSkills } }
-                ]
-            };
+            const uniqueCandidatesToScore = [...new Set(candidatesNeedingEvaluation)];
 
-            const preFilteredCandidates = await Resume.find(fastFilterQuery).limit(20).lean();
+            if (uniqueCandidatesToScore.length === 0) {
+                res.status(200).json({ message: 'All applicants have already been scored!', matches: [] });
+                return;
+            }
 
-            if (preFilteredCandidates.length === 0) {
-                res.status(200).json({
-                    message: 'No baseline candidates found in the database for this offer.',
-                    matches: []
-                });
+            // Fetch resumes, sorted by newest first
+            const allApplicantResumes = await Resume.find({
+                userId: { $in: uniqueCandidatesToScore }
+            }).sort({ updatedAt: -1 }).lean();
+
+            // Keep only 1 resume per User ID
+            const deduplicatedResumes: any[] = [];
+            const seenUserIds = new Set();
+            for (const resume of allApplicantResumes) {
+                if (!seenUserIds.has(resume.userId.toString())) {
+                    seenUserIds.add(resume.userId.toString());
+                    deduplicatedResumes.push(resume);
+                }
+            }
+
+            if (deduplicatedResumes.length === 0) {
+                res.status(200).json({ message: 'No resumes found to evaluate.', matches: [] });
                 return;
             }
 
             const jobOfferText = `
                 Job Title: ${jobOffer.title}
-                Department: ${jobOffer.department}
-                Required Minimum Experience: ${jobOffer.minYearsOfExperience} years
-                Key Required Skills: ${jobOffer.requiredSkills.join(', ')}
+                Required Experience: ${jobOffer.minYearsOfExperience} years
+                Key Skills: ${jobOffer.requiredSkills.join(', ')}
                 Description: ${jobOffer.description}
             `;
 
-            const evaluatedMatches = await geminiService.evaluateCandidates(jobOfferText, preFilteredCandidates);
+            // 4. Send the perfectly deduplicated array
+            const evaluatedMatches = await geminiService.evaluateCandidates(jobOfferText, deduplicatedResumes);
 
-            const finalResults = evaluatedMatches.map(aiMatch => {
-                const candidateObj = preFilteredCandidates.find(c => c._id.toString() === aiMatch.resumeId);
-                return {
-                    resumeId: aiMatch.resumeId,
-                    scores: aiMatch.scores,
-                    explanation: aiMatch.explanation,
-                    candidate: {
-                        firstName: candidateObj?.firstName || 'Unknown',
-                        lastName: candidateObj?.lastName || '',
-                        email: candidateObj?.email || '',
-                        yearsOfExperience: candidateObj?.yearsOfExperience,
-                        currentTitle: candidateObj?.experiences[0]?.position || 'N/A'
+            // 5. Save the FULL breakdown (aiScores) to the DB
+            let hasUpdates = false;
+            evaluatedMatches.forEach(aiMatch => {
+                const candidateObj = deduplicatedResumes.find(c => c._id.toString() === aiMatch.resumeId);
+                if (candidateObj) {
+                    const applicantEntry = jobOffer.applicants.find((a: any) => a.candidate.toString() === candidateObj.userId.toString());
+                    if (applicantEntry) {
+                        applicantEntry.aiScore = aiMatch.scores.overallScore;
+                        applicantEntry.aiScores = aiMatch.scores; // <--- SAVING THE 4 CRITERIA HERE
+                        applicantEntry.aiExplanation = aiMatch.explanation;
+                        hasUpdates = true;
                     }
-                };
+                }
             });
 
+            if (hasUpdates) await jobOffer.save();
+
             res.status(200).json({
-                message: `Successfully evaluated ${preFilteredCandidates.length} candidates.`,
-                totalEvaluated: preFilteredCandidates.length,
-                matches: finalResults
+                message: `Successfully evaluated ${deduplicatedResumes.length} applicants.`,
+                totalEvaluated: deduplicatedResumes.length,
+                matches: evaluatedMatches
             });
 
         } catch (error) {

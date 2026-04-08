@@ -15,7 +15,11 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const [jobs, setJobs] = useState(initialJobs);
+    const initialVisibleJobs = initialJobs.filter((job: any) =>
+        job.status === 'PUBLISHED' || initialAppliedIds.includes(job._id || job.id)
+    );
+
+    const [jobs, setJobs] = useState(initialVisibleJobs);
     const [appliedIds, setAppliedIds] = useState<string[]>(initialAppliedIds);
     const [savedIds, setSavedIds] = useState<string[]>(initialSavedIds);
 
@@ -28,11 +32,12 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
         if (query) {
             setSearchTerm(query);
             setIsSearching(true);
-            api.get(`/jobs?search=${encodeURIComponent(query)}`)
+
+            // --- limit=50 to the search API call ---
+            api.get(`/jobs?search=${encodeURIComponent(query)}&limit=50`)
                 .then(res => {
                     const fetchedJobs = res.data.data || res.data;
 
-                    // --- FIX: Apply the same security filter on client-side search ---
                     const visibleJobs = fetchedJobs.filter((job: any) =>
                         job.status === 'PUBLISHED' || appliedIds.includes(job._id || job.id)
                     );
@@ -43,7 +48,10 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
                 .finally(() => setIsSearching(false));
         } else {
             setSearchTerm('');
-            setJobs(initialJobs);
+            const visibleJobs = initialJobs.filter((job: any) =>
+                job.status === 'PUBLISHED' || appliedIds.includes(job._id || job.id)
+            );
+            setJobs(visibleJobs);
         }
     }, [searchParams, initialJobs, appliedIds]);
 
@@ -77,7 +85,6 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
         }
     };
 
-    // The Magic Link Route!
     const viewJobDetails = (jobId: string) => {
         router.push(`/candidate/jobs/${jobId}`);
     };
@@ -89,7 +96,6 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
 
     return (
         <div className="flex flex-col gap-6">
-            {/* Search Bar & Filter Toggle */}
             <div className="bg-base-100 p-4 rounded-3xl shadow-sm border border-base-content/5 flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-base-content/40">
@@ -125,7 +131,6 @@ export default function CandidateJobsClient({ initialJobs, initialAppliedIds, in
                 </div>
             </div>
 
-            {/* Grid */}
             <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center mb-2 px-2">
                     <h2 className="font-bold text-xl text-base-content">{showSavedOnly ? 'Saved Opportunities' : 'Active Opportunities'}</h2>

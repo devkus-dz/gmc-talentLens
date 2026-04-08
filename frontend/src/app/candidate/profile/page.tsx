@@ -1,6 +1,6 @@
 import React from 'react';
 import PageHeader from '@/components/ui/PageHeader';
-import CandidateProfileClient from '@/components/profile/CandidateProfileClient';
+import CandidateProfileClient from '@/components/candidate/CandidateProfileClient';
 import { fetchFromServer } from '@/lib/api-server';
 
 export default async function CandidateProfile() {

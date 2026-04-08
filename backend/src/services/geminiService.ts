@@ -143,40 +143,29 @@ export const geminiService = {
         try {
             if (!candidates || candidates.length === 0) return [];
 
-            // Strip down candidate payload to save tokens
+            // STRICT ANONYMIZATION: Only map the DB ID and professional traits.
+            // Names, emails, and phone numbers are completely dropped.
             const candidatesToEvaluate = candidates.map(c => ({
                 resumeId: c._id || c.id,
                 yearsOfExperience: c.yearsOfExperience,
                 skills: c.skills,
                 tags: c.tags,
                 summary: c.summary,
-                experienceHistory: c.experiences.map((e: any) => `${e.position} at ${e.company} (${e.startDate} - ${e.endDate})`).join(' | ')
+                experienceHistory: c.experiences?.map((e: any) => `${e.position} at ${e.company}`).join(' | ') || ''
             }));
 
             const prompt = buildJobMatchPrompt(jobOfferText, candidatesToEvaluate);
 
-            console.log(`🧠 Sending ${candidates.length} candidates to Gemini Match Model...`);
-            const result = await matchModel.generateContent([prompt]);
+            console.log(`🤖 ANONYMIZATION COMPLETE.`);
+            console.log(`🧠 Sending exactly ${candidatesToEvaluate.length} anonymized candidates to Gemini Match Model...`);
 
+            const result = await matchModel.generateContent([prompt]);
             const matchResults: MatchResult[] = JSON.parse(result.response.text());
 
-            // Sort results highest to lowest score
             return matchResults.sort((a, b) => b.scores.overallScore - a.scores.overallScore);
 
         } catch (error: any) {
             console.error('Gemini AI Matching Error:', error);
-
-            // --- Catch Rate Limits (429) or Quota Exceeded errors ---
-            const errorMessage = error.message?.toLowerCase() || '';
-            if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
-                notificationService.notifyAdmins(
-                    'AI System Alert: Matching Algorithm Offline',
-                    'The Gemini AI service has hit rate limits or exhausted its quota. Candidate evaluation for job offers will fail until resolved.',
-                    'ALERT'
-                ).catch(console.error);
-            }
-            // ----------------------
-
             throw new Error('Failed to evaluate candidates using AI.');
         }
     }

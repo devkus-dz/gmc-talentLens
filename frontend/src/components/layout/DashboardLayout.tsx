@@ -27,7 +27,6 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
 
     const pathname = usePathname();
-    // Safe active check (ensures exact match for root dashboards, and startsWith for sub-pages)
     const isActive = (path: string) => pathname === path || (path !== '/' && pathname.startsWith(`${path}/`));
 
     return (
@@ -44,7 +43,7 @@ export default function DashboardLayout({
                 </div>
 
                 {/* Desktop Sidebar */}
-                <div className="drawer-side z-60">
+                <div className="drawer-side z-50">
                     <label htmlFor="dashboard-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
 
                     <div className="w-72 h-full bg-base-100 border-r border-base-content/5 pt-24 lg:pt-8 flex flex-col pb-8 shadow-xl lg:shadow-none">

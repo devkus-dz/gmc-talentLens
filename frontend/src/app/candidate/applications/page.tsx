@@ -1,6 +1,6 @@
 import React from 'react';
 import PageHeader from '@/components/ui/PageHeader';
-import CandidateApplicationsClient from '@/components/applications/CandidateApplicationsClient';
+import CandidateApplicationsClient from '@/components/candidate/CandidateApplicationsClient';
 import { fetchFromServer } from '@/lib/api-server';
 
 export default async function CandidateApplicationsPage() {

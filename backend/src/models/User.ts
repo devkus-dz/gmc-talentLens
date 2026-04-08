@@ -12,6 +12,7 @@ export interface IUser extends Document {
 
   firstName?: string;
   lastName?: string;
+  phone?: string;
   isLookingForJob?: boolean;
   savedJobs?: mongoose.Types.ObjectId[];
 
@@ -42,6 +43,9 @@ const UserSchema: Schema = new Schema(
       type: String,
       required: function (this: IUser) { return this.role === 'CANDIDATE'; }
     },
+
+    phone: { type: String, default: null },
+
     isLookingForJob: {
       type: Boolean,
       default: function (this: IUser) { return this.role === 'CANDIDATE' ? true : undefined; }

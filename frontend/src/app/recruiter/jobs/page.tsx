@@ -1,10 +1,10 @@
 import React, { JSX } from 'react';
-import RecruiterJobsClient from '@/components/jobs/RecruiterJobsClient';
+import RecruiterJobsClient from '@/components/recruiter/RecruiterJobsClient';
 import { fetchFromServer } from '@/lib/api-server';
 
 export default async function ManageJobsPage(): Promise<JSX.Element> {
 
-    // sGet the current user to find their ID
+    // Get the current user to find their ID
     const authRes = await fetchFromServer('/auth/me');
     const userId = authRes?.user?._id || authRes?.user?.id;
 

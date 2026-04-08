@@ -1,6 +1,6 @@
 import React from 'react';
 import PageHeader from '@/components/ui/PageHeader';
-import CandidateJobsClient from '@/components/jobs/CandidateJobsClient';
+import CandidateJobsClient from '@/components/candidate/CandidateJobsClient';
 import { fetchFromServer } from '@/lib/api-server';
 
 export default async function CandidateJobsPage({
@@ -9,10 +9,11 @@ export default async function CandidateJobsPage({
     searchParams: Promise<{ search?: string }>
 }) {
     const resolvedParams = await searchParams;
-    const querySearch = resolvedParams.search ? `?search=${encodeURIComponent(resolvedParams.search)}` : '';
+
+    const querySearch = resolvedParams.search ? `&search=${encodeURIComponent(resolvedParams.search)}` : '';
 
     const [jobsRes, appliedRes, authRes] = await Promise.all([
-        fetchFromServer(`/jobs${querySearch}`),
+        fetchFromServer(`/jobs?limit=100${querySearch}`),
         fetchFromServer('/jobs/applied'),
         fetchFromServer('/auth/me')
     ]);

@@ -75,7 +75,7 @@ export default function KanbanBoard({ columns, cards, onDragEnd }: KanbanBoardPr
                 ))}
             </div>
 
-            {/* THE MAGIC OVERLAY: This renders the floating card outside the column's CSS restrictions */}
+            {/* This renders the floating card outside the column's CSS restrictions */}
             <DragOverlay>
                 {activeCard ? <CardDisplay card={activeCard} isOverlay /> : null}
             </DragOverlay>

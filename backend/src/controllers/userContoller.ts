@@ -29,8 +29,10 @@ class UserController {
     updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const userId = req.user?.id;
+            // Explicitly grabbing phone from req.body
             const { firstName, lastName, phone, companyName, website, companyDescription, industry, location } = req.body;
 
+            // Updating the user model including the phone field
             const updatedUser = await User.findByIdAndUpdate(
                 userId,
                 { firstName, lastName, phone },
@@ -142,10 +144,6 @@ class UserController {
     // ADMIN ROUTES (Managing other users)
     // ==========================================
 
-    /**
-         * @route GET /api/users
-         * @description Fetches all users, with optional searching, role, and job status filtering.
-         */
     getAllUsers = async (req: Request, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
@@ -154,8 +152,6 @@ class UserController {
 
             const search = req.query.search as string;
             const role = req.query.role as string;
-
-            // Catch the new filter parameter
             const isLookingForJob = req.query.isLookingForJob as string;
 
             const query: any = {};
@@ -164,7 +160,6 @@ class UserController {
                 query.role = role.toUpperCase();
             }
 
-            // Convert the string to a boolean and apply it to the Mongoose query
             if (isLookingForJob !== undefined) {
                 query.isLookingForJob = isLookingForJob === 'true';
             }
@@ -246,11 +241,6 @@ class UserController {
         }
     };
 
-    /**
-     * @route PATCH /api/users/update-password
-     * @description Securely updates the authenticated user's password.
-     * @access Private
-     */
     updatePassword = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const { currentPassword, newPassword } = req.body;
@@ -267,14 +257,12 @@ class UserController {
                 return;
             }
 
-            // Verify current password
             const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
             if (!isMatch) {
                 res.status(400).json({ message: 'Incorrect current password.' });
                 return;
             }
 
-            // Hash new password and save
             const salt = await bcrypt.genSalt(10);
             user.passwordHash = await bcrypt.hash(newPassword, salt);
             await user.save();

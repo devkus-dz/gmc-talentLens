@@ -5,7 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import DataTable from '@/components/ui/DataTable';
 import ConfirmModal from '@/components/ui/ConfirmModal';
-import JobDetailClient from '@/components/jobs/JobDetailClient';
+import JobDetailClient from '@/components/candidate/JobDetailClient';
 import { Ellipsis, AlertCircle } from 'lucide-react';
 
 interface JobsClientProps {

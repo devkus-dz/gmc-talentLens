@@ -4,19 +4,42 @@
 }
 
 /* ========================================
+   DAISYUI DARK THEME OVERRIDE
+   ======================================== */
+   [data-theme="dark"] {
+    /* THE REVERSED HIERARCHY */
+    --color-base-100: #1f2937; /* Components */
+    --color-base-200: #172239; /* Background */
+    --color-base-300: #090e17; /* Borders & Input background */
+    
+    /* ACCENT & TEXT */
+    --color-base-content: #f9fafb; /* Soft silver text (Gray-200) */
+    
+    /* Optional: Make your primary color pop against the dark nav */
+    --color-primary: #6366f1; /* Indigo-500 */
+    --color-primary-content: #ffffff;
+  }
+  
+
+/* ========================================
   THE COGNITIVE LENS: Global Overrides
   ========================================
 */
 
 @layer base {
-  body {
-    /* Set the background to the DaisyUI base-100 color */
-    @apply bg-base-100 text-base-content antialiased;
+  /* The stretch fix without custom color overrides */
+  :root, html, body {
+    @apply bg-base-300 text-base-content min-h-screen;
+    background-color: var(--fallback-b1,oklch(var(--b1))) !important;
   }
 
   /* Enforce the "No-Line" Rule */
   hr {
     @apply hidden;
+  }
+
+  #__next {
+    @apply min-h-screen flex flex-col;
   }
 }
 

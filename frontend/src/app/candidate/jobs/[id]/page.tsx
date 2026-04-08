@@ -1,6 +1,6 @@
 import React from 'react';
 import { fetchFromServer } from '@/lib/api-server';
-import JobDetailClient from '@/components/jobs/JobDetailClient';
+import JobDetailClient from '@/components/candidate/JobDetailClient';
 import Link from 'next/link';
 
 export default async function CandidateJobDetailPage({

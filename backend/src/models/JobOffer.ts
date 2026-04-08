@@ -4,6 +4,9 @@ export interface IApplicant {
     candidate: mongoose.Types.ObjectId;
     status: 'Applied' | 'In Review' | 'Interview' | 'Offered' | 'Rejected';
     appliedAt: Date;
+    aiScore?: number;
+    aiScores?: any;
+    aiExplanation?: string;
 }
 
 export interface IJobOffer extends Document {
@@ -20,13 +23,9 @@ export interface IJobOffer extends Document {
     tags: string[];
     applicants: IApplicant[];
     createdBy: mongoose.Types.ObjectId;
-
-    // --- NEW COMPANY FIELDS ---
     companyId?: mongoose.Types.ObjectId;
     companyName?: string;
     companyLogo?: string;
-    // --------------------------
-
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
     createdAt: Date;
     updatedAt: Date;
@@ -39,7 +38,10 @@ const ApplicantSchema = new Schema<IApplicant>({
         enum: ['Applied', 'In Review', 'Interview', 'Offered', 'Rejected'],
         default: 'Applied'
     },
-    appliedAt: { type: Date, default: Date.now }
+    appliedAt: { type: Date, default: Date.now },
+    aiScore: { type: Number, required: false },
+    aiScores: { type: Schema.Types.Mixed, required: false },
+    aiExplanation: { type: String, required: false }
 }, { _id: true });
 
 const JobOfferSchema: Schema = new Schema(
@@ -56,18 +58,10 @@ const JobOfferSchema: Schema = new Schema(
         tags: { type: [String], default: [] },
         applicants: { type: [ApplicantSchema], default: [] },
         createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-
-        // --- COMPANY FIELDS ---
         companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: false },
         companyName: { type: String, required: false },
         companyLogo: { type: String, required: false },
-        // --------------------------
-
-        status: {
-            type: String,
-            enum: ['DRAFT', 'PUBLISHED', 'CLOSED'],
-            default: 'DRAFT'
-        },
+        status: { type: String, enum: ['DRAFT', 'PUBLISHED', 'CLOSED'], default: 'DRAFT' },
     },
     { timestamps: true }
 );
