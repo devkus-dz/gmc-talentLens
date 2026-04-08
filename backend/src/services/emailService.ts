@@ -15,8 +15,7 @@ export const emailService = {
      */
     _createTransporter(): nodemailer.Transporter {
         return nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT || '587'),
+            service: 'gmail',
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
@@ -35,13 +34,16 @@ export const emailService = {
             const transporter = this._createTransporter();
 
             const mailOptions = {
-                from: '"TalentLens Support" <hello@demomailtrap.co>',
+                // Dynamically sets the "From" address using your Gmail account in the .env file
+                from: `"TalentLens Support" <${process.env.SMTP_USER}>`,
                 to,
                 subject: 'Password Reset Request',
                 html: `
                     <h2>Password Reset</h2>
                     <p>You requested a password reset. Please click the link below to set a new password:</p>
+                    <br/>
                     <a href="${resetUrl}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+                    <br/><br/>
                     <p>If you did not request this, please ignore this email. This link will expire in 1 hour.</p>
                 `,
             };

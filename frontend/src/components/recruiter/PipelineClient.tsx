@@ -20,9 +20,10 @@ const PIPELINE_STAGES = [
 interface PipelineClientProps {
     jobs: any[];
     initialJobId?: string;
+    userId: string; // <-- Added to scope API calls
 }
 
-export default function PipelineClient({ jobs, initialJobId }: PipelineClientProps) {
+export default function PipelineClient({ jobs, initialJobId, userId }: PipelineClientProps) {
     const initialJob = jobs.find(j => (j._id || j.id) === initialJobId) || null;
 
     const [selectedJobId, setSelectedJobId] = useState<string>(initialJobId || '');
@@ -45,15 +46,18 @@ export default function PipelineClient({ jobs, initialJobId }: PipelineClientPro
         return () => clearTimeout(timer);
     }, [jobSearch]);
 
+    // Live Dropdown Search
     useEffect(() => {
         const fetchJobsForDropdown = async () => {
+            if (!userId) return;
             setIsLoadingJobs(true);
             try {
                 const statusQuery = showClosedOnly ? '&status=CLOSED' : '&status=PUBLISHED';
                 const isSearchingNewTerm = debouncedSearch !== selectedJob?.title;
                 const searchQuery = (debouncedSearch && isSearchingNewTerm) ? `&search=${encodeURIComponent(debouncedSearch)}` : '';
 
-                const res = await api.get(`/jobs?limit=20${statusQuery}${searchQuery}`);
+                // --- SECURITY SCOPE: Append createdBy=${userId} ---
+                const res = await api.get(`/jobs?limit=20${statusQuery}${searchQuery}&createdBy=${userId}`);
                 setJobOptions(res.data.data || []);
             } catch (error) {
                 console.error("Failed to fetch jobs for dropdown", error);
@@ -62,8 +66,9 @@ export default function PipelineClient({ jobs, initialJobId }: PipelineClientPro
             }
         };
         fetchJobsForDropdown();
-    }, [debouncedSearch, showClosedOnly, selectedJob?.title]);
+    }, [debouncedSearch, showClosedOnly, selectedJob?.title, userId]);
 
+    // Rest of the component remains exactly the same
     const fetchApplicants = async () => {
         if (!selectedJobId) return;
         setIsLoadingPipeline(true);
@@ -159,7 +164,6 @@ export default function PipelineClient({ jobs, initialJobId }: PipelineClientPro
                             </button>
                         )}
 
-                        {/* --- WIDER DROPDOWN COMPONENT --- */}
                         <SearchableDropdown
                             className="w-full sm:w-96 lg:w-[450px]"
                             value={selectedJob}

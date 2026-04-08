@@ -59,7 +59,6 @@ export default function NotificationDropdown() {
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
 
-            // Programmatically close the DaisyUI dropdown
             (document.activeElement as HTMLElement)?.blur();
         } catch (error) {
             console.error('Failed to mark all as read', error);
@@ -71,10 +70,9 @@ export default function NotificationDropdown() {
             markAsRead(notification._id);
         }
 
-        // Programmatically close the DaisyUI dropdown
         (document.activeElement as HTMLElement)?.blur();
 
-        // Route them if the notification has a specific destination
+        // Route if the notification has a specific destination
         if (notification.type === 'APPLICATION_UPDATE' || notification.type === 'INTERVIEW') {
             router.push('/candidate/applications');
         } else if (notification.link) {
@@ -87,7 +85,7 @@ export default function NotificationDropdown() {
 
     return (
         <div className="dropdown dropdown-end">
-            {/* The DaisyUI CSS engine uses this tabIndex={0} to open the dropdown on click */}
+
             <div
                 tabIndex={0}
                 role="button"
@@ -101,7 +99,6 @@ export default function NotificationDropdown() {
                 )}
             </div>
 
-            {/* The content is ALWAYS in the DOM, DaisyUI hides/shows it instantly */}
             <div tabIndex={0} className="dropdown-content z-100 menu p-0 mt-4 shadow-lg bg-base-100 rounded-2xl w-80 sm:w-96 border border-base-content/10 overflow-hidden">
 
                 {/* Header */}

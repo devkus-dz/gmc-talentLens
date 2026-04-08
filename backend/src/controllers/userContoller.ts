@@ -4,6 +4,7 @@ import User from '../models/User';
 import Company from '../models/Company';
 import { s3Service } from '../services/s3Service';
 import bcrypt from 'bcryptjs';
+import JobOffer from '../models/JobOffer';
 
 class UserController {
 
@@ -144,7 +145,11 @@ class UserController {
     // ADMIN ROUTES (Managing other users)
     // ==========================================
 
-    getAllUsers = async (req: Request, res: Response): Promise<void> => {
+    /**
+     * @route GET /api/users
+     * @description Fetches all users, with optional searching, role, and job status filtering.
+     */
+    getAllUsers = async (req: AuthRequest | any, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
@@ -156,7 +161,17 @@ class UserController {
 
             const query: any = {};
 
-            if (role) {
+            // --- SECURITY DATA SCOPING: RECRUITER ISOLATION ---
+            if (req.user?.role === 'RECRUITER') {
+                // 1. Find all jobs owned by this recruiter
+                const myJobs = await JobOffer.find({ createdBy: req.user.id }).select('applicants.candidate');
+                // 2. Extract every single candidate ID that has applied to them
+                const candidateIds = myJobs.flatMap(job => job.applicants.map(app => app.candidate));
+
+                // 3. Force the search to ONLY look at those specific candidates
+                query._id = { $in: candidateIds };
+                query.role = 'CANDIDATE';
+            } else if (role) {
                 query.role = role.toUpperCase();
             }
 
@@ -187,13 +202,28 @@ class UserController {
         }
     };
 
-    getUserById = async (req: Request, res: Response): Promise<void> => {
+    getUserById = async (req: AuthRequest | any, res: Response): Promise<void> => {
         try {
             const user = await User.findById(req.params.id).select('-passwordHash').populate('companyId');
             if (!user) {
                 res.status(404).json({ message: 'User not found' });
                 return;
             }
+
+            // --- SECURITY DATA SCOPING ---
+            // If a recruiter tries to view a profile directly via URL, ensure they applied to them!
+            if (req.user?.role === 'RECRUITER' && user.role === 'CANDIDATE') {
+                const hasApplied = await JobOffer.exists({
+                    createdBy: req.user.id,
+                    'applicants.candidate': user._id
+                });
+
+                if (!hasApplied) {
+                    res.status(403).json({ message: 'Forbidden. This candidate has not applied to any of your jobs.' });
+                    return;
+                }
+            }
+
             res.status(200).json({ data: user });
         } catch (error) {
             res.status(500).json({ message: 'Failed to fetch user' });

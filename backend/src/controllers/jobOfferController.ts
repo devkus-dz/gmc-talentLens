@@ -343,8 +343,8 @@ class JobOfferController extends BaseController<IJobOffer> {
     };
 
     /**
-     * Retrieves a paginated and dynamically filtered list of Job Offers.
-     */
+         * Retrieves a paginated and dynamically filtered list of Job Offers.
+         */
     getAllJobOffers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
@@ -353,8 +353,6 @@ class JobOfferController extends BaseController<IJobOffer> {
 
             const search = req.query.search as string;
             const isActive = req.query.isActive as string;
-
-            // --- NEW: Grab createdBy and status from the URL query ---
             const createdBy = req.query.createdBy as string;
             const status = req.query.status as string;
 
@@ -364,12 +362,18 @@ class JobOfferController extends BaseController<IJobOffer> {
                 query.isActive = isActive === 'true';
             }
 
-            // --- NEW: Apply the filter if a specific user ID is requested ---
-            if (createdBy) {
+            // --- SECURITY DATA SCOPING ---
+            if (req.user?.role === 'RECRUITER') {
+                // A recruiter can ONLY ever see their own jobs
+                query.createdBy = req.user.id;
+            } else if (req.user?.role === 'CANDIDATE') {
+                // A candidate can ONLY ever see published jobs
+                query.status = 'PUBLISHED';
+            } else if (createdBy) {
+                // Admins can filter by specific creators
                 query.createdBy = createdBy;
             }
 
-            // --- NEW: Apply status filter if requested ---
             if (status) {
                 query.status = status;
             }

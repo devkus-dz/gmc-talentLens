@@ -15,9 +15,10 @@ export default async function PipelinePage({
 
     let jobs = [];
     if (userId) {
+        // fetch only this specific recruiter's jobs
         const jobsRes = await fetchFromServer(`/jobs?createdBy=${userId}&limit=100`);
         jobs = jobsRes?.data || [];
     }
 
-    return <PipelineClient jobs={jobs} initialJobId={jobId} />;
+    return <PipelineClient jobs={jobs} initialJobId={jobId} userId={userId} />;
 }

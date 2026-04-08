@@ -7,24 +7,25 @@ interface GlobalSearchPageProps {
     searchParams: Promise<{ q?: string }>;
 }
 
-/**
- * Server Component that executes a unified global search across Candidates and Jobs for Recruiters.
- */
 export default async function RecruiterGlobalSearchPage({ searchParams }: GlobalSearchPageProps): Promise<JSX.Element> {
     const resolvedParams = await searchParams;
     const query = resolvedParams.q || '';
 
+    // Get the recruiter ID for scoping jobs
+    const authRes = await fetchFromServer('/auth/me');
+    const userId = authRes?.user?._id || authRes?.user?.id;
+
     let candidates = [];
     let jobs = [];
 
-    if (query.trim().length > 0) {
+    if (query.trim().length > 0 && userId) {
         const encodedQuery = encodeURIComponent(query);
 
-        // Execute search requests in parallel
-        // We explicitly pass role=CANDIDATE to ensure recruiters only search the talent pool
+        // Scope Jobs to this Recruiter on the Frontend
+        // Candidates will be securely scoped by the Backend Controller
         const [candidatesRes, jobsRes] = await Promise.all([
             fetchFromServer(`/users?role=CANDIDATE&search=${encodedQuery}&limit=10`),
-            fetchFromServer(`/jobs?search=${encodedQuery}&limit=10`)
+            fetchFromServer(`/jobs?search=${encodedQuery}&limit=10&createdBy=${userId}`)
         ]);
 
         candidates = candidatesRes?.data || [];
@@ -51,8 +52,6 @@ export default async function RecruiterGlobalSearchPage({ searchParams }: Global
             )}
 
             <div className="flex flex-col gap-8">
-
-                {/* Candidates Section */}
                 {candidates.length > 0 && (
                     <section>
                         <h2 className="text-lg font-bold text-base-content mb-4 flex items-center gap-2 px-2">
@@ -82,11 +81,9 @@ export default async function RecruiterGlobalSearchPage({ searchParams }: Global
                                             <p className="text-sm text-base-content/50">{user.email}</p>
                                         </div>
                                     </div>
-
                                     {user.isLookingForJob && (
                                         <span className="badge badge-success badge-sm badge-soft ml-auto mr-4 hidden sm:inline-flex">Open to Work</span>
                                     )}
-
                                     <ChevronRight className="w-5 h-5 text-base-content/30 group-hover:text-primary transition-colors" />
                                 </Link>
                             ))}
@@ -94,7 +91,6 @@ export default async function RecruiterGlobalSearchPage({ searchParams }: Global
                     </section>
                 )}
 
-                {/* Jobs Section */}
                 {jobs.length > 0 && (
                     <section>
                         <h2 className="text-lg font-bold text-base-content mb-4 flex items-center gap-2 px-2">
@@ -114,8 +110,8 @@ export default async function RecruiterGlobalSearchPage({ searchParams }: Global
 
                                     <div className="flex items-center gap-3">
                                         <span className={`badge badge-sm uppercase tracking-widest text-[10px] font-bold ${job.status === 'PUBLISHED' ? 'badge-success badge-soft' :
-                                                job.status === 'CLOSED' ? 'bg-base-200 text-base-content/50 border-none' :
-                                                    'bg-warning/20 text-warning border-none'
+                                            job.status === 'CLOSED' ? 'bg-base-300 text-base-content/60 border-none' :
+                                                'bg-warning/20 text-warning border-none'
                                             }`}>
                                             {job.status}
                                         </span>
