@@ -64,6 +64,7 @@ export default function Navbar(): JSX.Element | null {
         if (currentRole === 'ADMIN') {
             router.push(`/admin/search?q=${query}`);
         } else if (currentRole === 'RECRUITER') {
+
             router.push(`/recruiter/search?q=${query}`);
         } else {
             router.push(`/candidate/jobs?search=${query}`);
@@ -80,7 +81,7 @@ export default function Navbar(): JSX.Element | null {
     else if (currentRole === 'ADMIN') searchPlaceholder = "Search users, companies, jobs...";
 
     if (!isMounted) {
-        return <div className="navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-55 sticky top-0 h-16"></div>;
+        return <div className="w-full bg-base-100 border-b border-base-content/5 px-4 lg:px-8 top-0 h-16"></div>;
     }
 
     return (

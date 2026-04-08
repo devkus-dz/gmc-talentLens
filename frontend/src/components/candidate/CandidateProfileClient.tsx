@@ -96,12 +96,23 @@ export default function CandidateProfileClient({
     };
 
     const handleSave = async () => {
-        if (!resumeData?._id && !resumeData?.id) return;
         setIsSaving(true);
         try {
-            await api.patch(`/resumes/${resumeData._id || resumeData.id}`, {
-                skills, tags, languages, certifications, experiences, education
+
+            if (resumeData?._id || resumeData?.id) {
+                await api.patch(`/resumes/${resumeData._id || resumeData.id}`, {
+                    skills, tags, languages, certifications, experiences, education
+                });
+            }
+
+            await api.patch('/users/profile', {
+                firstName: user.firstName,
+                lastName: user.lastName
             });
+
+            localStorage.setItem('user', JSON.stringify(user));
+            window.dispatchEvent(new Event('user-updated'));
+
             showToast("Profile saved successfully!", "success");
         } catch (error) {
             console.error("Save failed:", error);
@@ -291,11 +302,13 @@ export default function CandidateProfileClient({
             <div className="lg:col-span-2 flex flex-col gap-6">
                 <div className="bg-base-100 rounded-4xl p-6 sm:p-8 shadow-sm border border-base-content/5">
                     <PersonalInfoForm
-                        firstName={user.firstName || resumeData?.firstName || ''}
-                        lastName={user.lastName || resumeData?.lastName || ''}
-                        email={user.email || resumeData?.email || ''}
+                        firstName={user.firstName || ''}
+                        lastName={user.lastName || ''}
+                        email={user.email || ''}
                         profilePictureUrl={user.profilePictureUrl}
                         isLookingForJob={user.isLookingForJob}
+                        onChangeFirstName={(val) => setUser({ ...user, firstName: val })}
+                        onChangeLastName={(val) => setUser({ ...user, lastName: val })}
                         onToggleStatus={handleToggleJobStatus}
                         onUploadSuccess={() => showToast("Profile picture updated successfully!", "success")}
                         onUploadError={(err) => showToast(err, "error")}
@@ -438,7 +451,7 @@ export default function CandidateProfileClient({
 
             {/* --- Global Toast Notification --- */}
             {toast && (
-                <div className="toast toast-top toast-end z-100 animate-fade-in-down">
+                <div className="toast toast-bottom toast-end z-100 animate-fade-in-down">
                     <div className={`alert ${toast.type === 'success' ? 'alert-success' : 'alert-error'} shadow-lg text-white font-medium flex items-center`}>
                         {toast.type === 'success' ? (
                             <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

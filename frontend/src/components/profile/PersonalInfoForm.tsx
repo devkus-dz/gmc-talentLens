@@ -6,10 +6,12 @@ interface PersonalInfoFormProps {
     lastName: string;
     email: string;
     profilePictureUrl?: string | null;
-    isLookingForJob?: boolean; // NEW
+    isLookingForJob?: boolean;
     onUploadSuccess?: (newUrl: string) => void;
     onUploadError?: (error: string) => void;
-    onToggleStatus?: () => void; // NEW
+    onToggleStatus?: () => void;
+    onChangeFirstName: (val: string) => void; // Added handler
+    onChangeLastName: (val: string) => void;  // Added handler
 }
 
 export default function PersonalInfoForm({
@@ -20,7 +22,9 @@ export default function PersonalInfoForm({
     isLookingForJob = false,
     onUploadSuccess,
     onUploadError,
-    onToggleStatus
+    onToggleStatus,
+    onChangeFirstName,
+    onChangeLastName
 }: PersonalInfoFormProps) {
     return (
         <div>
@@ -48,9 +52,11 @@ export default function PersonalInfoForm({
                             First Name
                         </span>
                     </div>
+
                     <input
                         type="text"
-                        defaultValue={firstName}
+                        value={firstName}
+                        onChange={(e) => onChangeFirstName(e.target.value)}
                         placeholder="e.g. Jane"
                         className="input input-bordered w-full bg-base-200/30 border-base-content/10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-xl text-sm font-medium"
                     />
@@ -63,9 +69,11 @@ export default function PersonalInfoForm({
                             Last Name
                         </span>
                     </div>
+
                     <input
                         type="text"
-                        defaultValue={lastName}
+                        value={lastName}
+                        onChange={(e) => onChangeLastName(e.target.value)}
                         placeholder="e.g. Doe"
                         className="input input-bordered w-full bg-base-200/30 border-base-content/10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-xl text-sm font-medium"
                     />
@@ -80,13 +88,13 @@ export default function PersonalInfoForm({
                     </div>
                     <input
                         type="email"
-                        defaultValue={email}
+                        value={email}
                         readOnly
                         className="input input-bordered w-full bg-base-200/30 border-base-content/10 text-base-content/60 rounded-xl text-sm font-medium cursor-not-allowed"
                     />
                 </label>
 
-                {/* NEW: Job Visibility Toggle */}
+                {/* Job Visibility Toggle */}
                 <div className="sm:col-span-2 mt-4 p-5 rounded-2xl border border-base-content/10 bg-base-200/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h3 className="font-bold text-base-content">Open to Work</h3>

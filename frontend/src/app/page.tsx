@@ -1,21 +1,22 @@
-export default function Home() {
-  return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="card bg-base-200 shadow-xl max-w-md w-full">
-        <div className="card-body items-center text-center">
-          <h2 className="card-title text-3xl font-bold text-gradient-primary">
-            TalentLens
-          </h2>
-          <p className="text-base-content/70 mt-2">
-            The Cognitive ATS is ready to be built.
-          </p>
-          <div className="card-actions mt-6 w-full">
-            <button className="btn btn-primary w-full rounded-xl">
-              Get Started
-            </button>
-          </div>
-        </div>
-      </div>
-    </main>
-  );
+import React, { JSX } from 'react';
+import HomeClient from '@/components/home/HomeClient';
+import { Metadata } from 'next';
+
+/**
+ * SEO Metadata for the main landing page.
+ * This is parsed by search engine crawlers before the client hydrates.
+ */
+export const metadata: Metadata = {
+  title: 'TalentLens | AI-Powered ATS',
+  description: 'The next-generation ATS that uses AI to score candidates, automate pipelines, and connect top talent with top companies instantly.',
+  keywords: ['ATS', 'Applicant Tracking System', 'AI Recruiting', 'TalentLens', 'Jobs'],
+};
+
+/**
+ * Server Component for the Landing Page.
+ * Ensures optimal SEO and Core Web Vitals while delegating interactivity to the Client Component.
+ * @returns {JSX.Element} The server-rendered page layout.
+ */
+export default function HomePage(): JSX.Element {
+  return <HomeClient />;
 }

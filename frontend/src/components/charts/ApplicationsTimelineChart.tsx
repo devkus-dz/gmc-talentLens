@@ -8,8 +8,7 @@ interface ApplicationsTimelineChartProps {
 }
 
 export default function ApplicationsTimelineChart({ data }: ApplicationsTimelineChartProps): JSX.Element {
-    // In React 19 + Recharts 3, providing a numeric height (320) completely stops 
-    // the ResizeObserver from crashing on initial vertical layout calculation.
+
     return (
         <div className="w-full mt-4">
             <ResponsiveContainer width="100%" height={320} minWidth={1}>
