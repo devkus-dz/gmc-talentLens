@@ -283,7 +283,7 @@ export default function CandidateProfileClient({
                                     Parsed on {new Date(resumeData?.updatedAt || Date.now()).toLocaleDateString()}
                                 </p>
                             </div>
-                            <a href={documentUrl || `http://localhost:9000/talentlens-storage/${resumeData.fileKey}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-primary btn-outline shrink-0">View File</a>
+                            <a href={documentUrl || `${process.env.NEXT_PUBLIC_S3_BASE_URL}/${resumeData.fileKey}`} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-primary btn-outline shrink-0">View File</a>
                         </div>
                     )}
                 </div>
