@@ -88,6 +88,8 @@ class UserController {
 
             await User.findByIdAndUpdate(req.user.id, { profilePictureUrl: publicUrl });
 
+            clearGlobalCache();
+
             res.status(200).json({ message: 'Profile picture uploaded successfully!', profilePictureUrl: publicUrl });
         } catch (error) {
             res.status(500).json({ message: 'An internal error occurred during upload.' });
@@ -250,6 +252,9 @@ class UserController {
                 res.status(404).json({ message: 'User not found' });
                 return;
             }
+
+            clearGlobalCache();
+
             res.status(200).json({ message: 'User updated successfully', data: updatedUser });
         } catch (error) {
             res.status(500).json({ message: 'Failed to update user' });
@@ -263,6 +268,9 @@ class UserController {
                 res.status(404).json({ message: 'User not found' });
                 return;
             }
+
+            clearGlobalCache();
+
             res.status(200).json({ message: 'User deleted successfully' });
         } catch (error) {
             res.status(500).json({ message: 'Failed to delete user' });
@@ -278,6 +286,9 @@ class UserController {
             }
             user.isActive = !user.isActive;
             await user.save();
+
+            clearGlobalCache();
+
             res.status(200).json({ message: `User account ${user.isActive ? 'activated' : 'deactivated'}`, isActive: user.isActive });
         } catch (error) {
             res.status(500).json({ message: 'Failed to toggle user status' });

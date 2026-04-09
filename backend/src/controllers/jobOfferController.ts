@@ -361,8 +361,8 @@ class JobOfferController extends BaseController<IJobOffer> {
     };
 
     /**
-         * Retrieves a paginated and dynamically filtered list of Job Offers.
-         */
+     * Retrieves a paginated and dynamically filtered list of Job Offers.
+     */
     getAllJobOffers = async (req: AuthRequest, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;
@@ -480,7 +480,7 @@ class JobOfferController extends BaseController<IJobOffer> {
             const { id } = req.params;
             const userId = req.user?.id;
 
-            // 1. Find the job
+            // Find the job
             const job = await this.repository.findById(id as string);
 
             if (!job) {
@@ -488,20 +488,22 @@ class JobOfferController extends BaseController<IJobOffer> {
                 return;
             }
 
-            // 2. Safely check the condition: Is the job closed?
+            // Safely check the condition: Is the job closed?
             const currentStatus = job.status?.toUpperCase();
             if (currentStatus === 'CLOSED' || job.isActive === false) {
                 res.status(400).json({ message: 'You cannot withdraw from a job that is already closed.' });
                 return;
             }
 
-            // 3. Remove the candidate from the applicants array safely
+            // Remove the candidate from the applicants array safely
             job.applicants = job.applicants.filter((app: any) => {
                 const candidateId = app.candidate ? app.candidate.toString() : app.toString();
                 return candidateId !== userId;
             });
 
             await job.save();
+
+            clearGlobalCache();
 
             res.status(200).json({ message: 'Application successfully withdrawn.' });
         } catch (error) {
