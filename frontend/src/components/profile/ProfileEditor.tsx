@@ -19,11 +19,14 @@ export default function ProfileEditor({ initialUser, initialResume }: ProfileEdi
     const router = useRouter();
     const [isSaving, setIsSaving] = useState(false);
 
-    // Form State (If no resume exists, we initialize with empty arrays)
+    const [user, setUser] = useState({
+        firstName: initialUser?.firstName || initialResume?.firstName || '',
+        lastName: initialUser?.lastName || initialResume?.lastName || '',
+        email: initialUser?.email || initialResume?.email || ''
+    });
+
     const [skills, setSkills] = useState<string[]>(initialResume?.skills || []);
     const [tags, setTags] = useState<string[]>(initialResume?.tags || []);
-
-    // You can also add state for user personal info here if you want to make PersonalInfoForm controlled
 
     // --- Action Handlers ---
 
@@ -36,23 +39,30 @@ export default function ProfileEditor({ initialUser, initialResume }: ProfileEdi
     };
 
     const handleDiscard = () => {
-        // Reset state back to the initial server props
+        // Reset all states back to the initial server props
+        setUser({
+            firstName: initialUser?.firstName || initialResume?.firstName || '',
+            lastName: initialUser?.lastName || initialResume?.lastName || '',
+            email: initialUser?.email || initialResume?.email || ''
+        });
         setSkills(initialResume?.skills || []);
         setTags(initialResume?.tags || []);
     };
 
     const handleSave = async () => {
-        if (!initialResume?._id && !initialResume?.id) return;
-
         setIsSaving(true);
         try {
-            // Send the updated arrays to the backend
+
+            await api.patch('/users/profile', {
+                firstName: user.firstName,
+                lastName: user.lastName
+            });
+
             await api.patch(`/resumes/${initialResume._id || initialResume.id}`, {
                 skills,
                 tags
             });
 
-            // Refresh the server component to fetch the newly saved data
             router.refresh();
             alert("Profile updated successfully!");
         } catch (error) {
@@ -65,10 +75,13 @@ export default function ProfileEditor({ initialUser, initialResume }: ProfileEdi
 
     return (
         <div className="bg-base-100 rounded-4xl p-6 sm:p-8 shadow-sm border border-base-content/5">
+            {/* Wired the PersonalInfoForm to the new user state */}
             <PersonalInfoForm
-                firstName={initialUser.firstName || initialResume?.firstName || ''}
-                lastName={initialUser.lastName || initialResume?.lastName || ''}
-                email={initialUser.email || initialResume?.email || ''}
+                firstName={user.firstName}
+                lastName={user.lastName}
+                email={user.email}
+                onChangeFirstName={(val) => setUser({ ...user, firstName: val })}
+                onChangeLastName={(val) => setUser({ ...user, lastName: val })}
             />
 
             <div className="divider opacity-30 my-8"></div>
@@ -145,14 +158,14 @@ export default function ProfileEditor({ initialUser, initialResume }: ProfileEdi
             <div className="mt-10 flex justify-end gap-3 pt-6 border-t border-base-content/10">
                 <button
                     onClick={handleDiscard}
-                    disabled={isSaving || !initialResume}
+                    disabled={isSaving}
                     className="btn btn-ghost rounded-xl"
                 >
                     Discard Changes
                 </button>
                 <button
                     onClick={handleSave}
-                    disabled={isSaving || !initialResume}
+                    disabled={isSaving}
                     className="btn btn-primary rounded-xl px-8 shadow-md"
                 >
                     {isSaving ? <span className="loading loading-spinner loading-sm"></span> : 'Save Profile'}

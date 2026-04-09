@@ -10,8 +10,8 @@ interface PersonalInfoFormProps {
     onUploadSuccess?: (newUrl: string) => void;
     onUploadError?: (error: string) => void;
     onToggleStatus?: () => void;
-    onChangeFirstName: (val: string) => void; // Added handler
-    onChangeLastName: (val: string) => void;  // Added handler
+    onChangeFirstName?: (val: string) => void;
+    onChangeLastName?: (val: string) => void;
 }
 
 export default function PersonalInfoForm({
@@ -56,7 +56,7 @@ export default function PersonalInfoForm({
                     <input
                         type="text"
                         value={firstName}
-                        onChange={(e) => onChangeFirstName(e.target.value)}
+                        onChange={(e) => onChangeFirstName?.(e.target.value)}
                         placeholder="e.g. Jane"
                         className="input input-bordered w-full bg-base-200/30 border-base-content/10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-xl text-sm font-medium"
                     />
@@ -73,7 +73,7 @@ export default function PersonalInfoForm({
                     <input
                         type="text"
                         value={lastName}
-                        onChange={(e) => onChangeLastName(e.target.value)}
+                        onChange={(e) => onChangeLastName?.(e.target.value)}
                         placeholder="e.g. Doe"
                         className="input input-bordered w-full bg-base-200/30 border-base-content/10 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-xl text-sm font-medium"
                     />
