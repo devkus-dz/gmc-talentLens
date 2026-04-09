@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         {
           source: '/api/:path*',
-          destination: `${backendUrl}/api/:path*`
+          destination: 'https://gmc-talent-lens-backend.vercel.app/api/:path*'
         }
       ]
     };
