@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,8 +13,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TalentLens",
-  description: "The next-generation ATS System",
+  title: 'GMC TalentLens',
+  description: 'The next-generation ATS powered by AI.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TalentLens",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#141726',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

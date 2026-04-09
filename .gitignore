@@ -10,3 +10,8 @@ talenlens-storage/
 node_modules
 .env
 storage
+
+
+# Serwist PWA Files
+public/sw.js
+public/sw.js.map
