@@ -12,7 +12,8 @@ export async function fetchFromServer(endpoint: string, options: RequestInit = {
     const cookieStore = await cookies();
     const token = cookieStore.get('jwt')?.value;
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const backendBase = process.env.BACKEND_URL || 'http://localhost:5000';
+    const baseUrl = `${backendBase}/api`;
 
     try {
         const response = await fetch(`${baseUrl}${endpoint}`, {

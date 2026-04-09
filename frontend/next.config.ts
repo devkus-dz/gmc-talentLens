@@ -29,11 +29,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'http',
-        hostname: 'talentlens-bucket.s3.localhost.localstack.cloud',
+        hostname: 's3.igs.mywire.org',
       },
       {
         protocol: 'https',
-        hostname: 'talentlens-bucket.s3.localhost.localstack.cloud',
+        hostname: 's3.igs.mywire.org',
       }
     ],
   },
@@ -42,6 +42,16 @@ const nextConfig: NextConfig = {
   },
   /* Silences the Turbopack error caused by Serwist's Webpack injection */
   turbopack: {},
+
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl}/api/:path*`
+      }
+    ];
+  }
 };
 
 export default withSerwist(nextConfig);
