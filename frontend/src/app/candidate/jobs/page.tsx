@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react'; // 1. IMPORT SUSPENSE
 import PageHeader from '@/components/ui/PageHeader';
 import CandidateJobsClient from '@/components/candidate/CandidateJobsClient';
 import { fetchFromServer } from '@/lib/api-server';
@@ -9,7 +9,6 @@ export default async function CandidateJobsPage({
     searchParams: Promise<{ search?: string }>
 }) {
     const resolvedParams = await searchParams;
-
     const querySearch = resolvedParams.search ? `&search=${encodeURIComponent(resolvedParams.search)}` : '';
 
     const [jobsRes, appliedRes, authRes] = await Promise.all([
@@ -22,7 +21,6 @@ export default async function CandidateJobsPage({
     const appliedJobs = Array.isArray(appliedRes) ? appliedRes : (appliedRes?.data || []);
 
     const appliedJobIds = appliedJobs.map((app: any) => app.jobId || app._id || app.id);
-
     const visibleJobs = jobs.filter((job: any) =>
         job.status === 'PUBLISHED' || appliedJobIds.includes(job._id || job.id)
     );
@@ -37,11 +35,13 @@ export default async function CandidateJobsPage({
                 description="Discover and apply to your next great opportunity."
             />
 
-            <CandidateJobsClient
-                initialJobs={visibleJobs}
-                initialAppliedIds={appliedJobIds}
-                initialSavedIds={savedJobIds}
-            />
+            <Suspense fallback={<div className="p-12 text-center w-full"><span className="loading loading-spinner loading-lg text-primary"></span></div>}>
+                <CandidateJobsClient
+                    initialJobs={visibleJobs}
+                    initialAppliedIds={appliedJobIds}
+                    initialSavedIds={savedJobIds}
+                />
+            </Suspense>
         </div>
     );
 }

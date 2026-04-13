@@ -7,7 +7,7 @@ import ThemeToggle from '../ui/ThemeToggle';
 import Logo from '../ui/Logo';
 import NotificationDropdown from './NotificationDropdown';
 import api from '@/lib/api';
-import { Menu, Search, User, Settings, LogOut } from 'lucide-react';
+import { Menu, Search, User, LogOut } from 'lucide-react';
 
 interface LocalUser {
     id: string;
@@ -18,7 +18,7 @@ interface LocalUser {
     profilePictureUrl: string | null;
 }
 
-export default function Navbar(): JSX.Element | null {
+export default function Navbar(): JSX.Element {
     const router = useRouter();
     const pathname = usePathname();
     const [user, setUser] = useState<LocalUser | null>(null);
@@ -30,11 +30,8 @@ export default function Navbar(): JSX.Element | null {
         const loadUser = () => {
             const storedUser = localStorage.getItem('user');
             if (storedUser) {
-                try {
-                    setUser(JSON.parse(storedUser));
-                } catch (error) {
-                    console.error('Failed to parse user data from local storage');
-                }
+                try { setUser(JSON.parse(storedUser)); }
+                catch (error) { console.error('Failed to parse user data'); }
             }
         };
         loadUser();
@@ -43,11 +40,9 @@ export default function Navbar(): JSX.Element | null {
     }, []);
 
     const handleLogout = async (): Promise<void> => {
-        try {
-            await api.post('/auth/logout');
-        } catch (error) {
-            console.error('Logout request failed, proceeding with local cleanup', error);
-        } finally {
+        try { await api.post('/auth/logout'); }
+        catch (error) { }
+        finally {
             localStorage.removeItem('user');
             setUser(null);
             router.push('/auth/login');
@@ -57,41 +52,29 @@ export default function Navbar(): JSX.Element | null {
     const handleGlobalSearch = (e: React.FormEvent): void => {
         e.preventDefault();
         if (!searchQuery.trim()) return;
-
         const query = encodeURIComponent(searchQuery.trim());
         const currentRole = user?.role?.toUpperCase();
 
-        if (currentRole === 'ADMIN') {
-            router.push(`/admin/search?q=${query}`);
-        } else if (currentRole === 'RECRUITER') {
-
-            router.push(`/recruiter/search?q=${query}`);
-        } else {
-            router.push(`/candidate/jobs?search=${query}`);
-        }
+        if (currentRole === 'ADMIN') router.push(`/admin/search?q=${query}`);
+        else if (currentRole === 'RECRUITER') router.push(`/recruiter/search?q=${query}`);
+        else router.push(`/candidate/jobs?search=${query}`);
 
         setSearchQuery('');
     };
 
     let searchPlaceholder = "Search...";
     const currentRole = user?.role?.toUpperCase();
-
-    if (currentRole === 'CANDIDATE') searchPlaceholder = "Search jobs, skills, companies...";
+    if (currentRole === 'CANDIDATE') searchPlaceholder = "Search jobs, skills...";
     else if (currentRole === 'RECRUITER') searchPlaceholder = "Search candidates, jobs...";
-    else if (currentRole === 'ADMIN') searchPlaceholder = "Search users, companies, jobs...";
-
-    if (!isMounted) {
-        return <div className="w-full bg-base-100 border-b border-base-content/5 px-4 lg:px-8 top-0 h-16"></div>;
-    }
+    else if (currentRole === 'ADMIN') searchPlaceholder = "Search users, companies...";
 
     return (
-        <div className="print:hidden navbar bg-base-100 border-b border-base-content/5 px-4 lg:px-8 z-55 sticky top-0 h-16">
+        <div className="navbar w-full h-full px-4 lg:px-8">
 
             <div className="flex-1 flex items-center gap-2">
                 <label htmlFor="dashboard-drawer" className="btn btn-ghost btn-circle drawer-button lg:hidden text-base-content">
                     <Menu className="w-5 h-5" />
                 </label>
-
                 <Logo />
             </div>
 
@@ -112,16 +95,17 @@ export default function Navbar(): JSX.Element | null {
             <div className="flex-1 flex justify-end items-center gap-1 sm:gap-3">
                 <ThemeToggle />
 
-                {user ? (
+                {!isMounted ? (
+                    <div className="w-8 h-8 rounded-full bg-base-300 animate-pulse ml-4 hidden sm:block"></div>
+                ) : user ? (
                     <>
                         <NotificationDropdown />
-
                         <div className="dropdown dropdown-end ml-1 sm:ml-2 pl-2 sm:pl-4 sm:border-l border-base-content/10">
                             <div tabIndex={0} role="button" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
                                 <div className="avatar placeholder border border-base-content/10 rounded-full p-0.5 hover:border-primary transition-colors">
                                     {user.profilePictureUrl ? (
                                         <div className="w-8 h-8 rounded-full overflow-hidden bg-base-200">
-                                            <img alt={`${user.firstName} ${user.lastName}`} src={user.profilePictureUrl} className="object-cover w-full h-full" />
+                                            <img alt={`${user.firstName}`} src={user.profilePictureUrl} className="object-cover w-full h-full" />
                                         </div>
                                     ) : (
                                         <div className="bg-primary/10 text-primary rounded-full w-8 h-8 flex items-center justify-center">
@@ -135,13 +119,7 @@ export default function Navbar(): JSX.Element | null {
                                     {user.firstName} {user.lastName}
                                 </span>
                             </div>
-
                             <ul tabIndex={0} className="mt-4 z-55 p-2 shadow-xl menu menu-sm dropdown-content bg-base-100 rounded-2xl w-60 border border-base-content/10">
-                                <li className="menu-title px-4 py-2">
-                                    <span className="text-base-content font-bold block truncate">{user.firstName} {user.lastName}</span>
-                                    <span className="text-xs text-base-content/50 font-medium truncate">{user.email}</span>
-                                </li>
-                                <div className="divider my-0"></div>
                                 <li>
                                     <Link href={`/${user.role?.toLowerCase() || 'candidate'}/dashboard`} className="py-3 font-medium">
                                         <Menu className="w-4 h-4 text-base-content/60" /> Dashboard
@@ -154,7 +132,7 @@ export default function Navbar(): JSX.Element | null {
                                 </li>
                                 <div className="divider my-0"></div>
                                 <li>
-                                    <button onClick={handleLogout} className="text-error py-3 font-medium hover:bg-error/10 hover:text-error">
+                                    <button onClick={handleLogout} className="text-error py-3 font-medium hover:bg-error/10">
                                         <LogOut className="w-4 h-4" /> Logout
                                     </button>
                                 </li>
