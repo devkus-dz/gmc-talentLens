@@ -1,6 +1,6 @@
 import React, { JSX } from 'react';
-import { cookies } from 'next/headers';
 import CompaniesClient from '@/components/admin/CompaniesClient';
+import { fetchFromServer } from '@/lib/api-server';
 
 /**
  * @interface CompaniesPageProps
@@ -23,22 +23,9 @@ export default async function AdminCompaniesPage({ searchParams }: CompaniesPage
     const limit = resolvedParams.limit || '10';
     const search = resolvedParams.search || '';
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get('jwt')?.value;
+    const res = await fetchFromServer(`/admin/companies?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
 
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Cookie': `jwt=${token}` } : {})
-    };
-
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-    const res = await fetch(`${backendUrl}/admin/companies?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`, {
-        headers,
-        cache: 'no-store'
-    });
-
-    const data = res.ok ? await res.json() : { data: [], total: 0 };
+    const data = res || { data: [], total: 0 };
 
     return (
         <CompaniesClient

@@ -11,7 +11,6 @@ import { fetchFromServer } from '@/lib/api-server';
  */
 export default async function AdminDashboardPage(): Promise<JSX.Element> {
 
-    // Call the newly updated dashboard controller
     const res = await fetchFromServer('/dashboard/admin');
 
     // Extract the data payload

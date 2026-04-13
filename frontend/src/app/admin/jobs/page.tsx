@@ -1,7 +1,6 @@
-// frontend/src/app/admin/jobs/page.tsx
 import React, { JSX } from 'react';
-import { cookies } from 'next/headers';
 import JobsClient from '@/components/admin/JobsClient';
+import { fetchFromServer } from '@/lib/api-server';
 
 /**
  * @interface JobsPageProps
@@ -25,30 +24,18 @@ export default async function AdminJobsPage({ searchParams }: JobsPageProps): Pr
     const page = resolvedParams.page || '1';
     const limit = resolvedParams.limit || '10';
     const search = resolvedParams.search || '';
-
-    // Changed from `isActive` to `status` to match your backend updates
     const status = resolvedParams.status;
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get('jwt')?.value;
-
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Cookie': `jwt=${token}` } : {})
-    };
-
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-    let fetchUrl = `${backendUrl}/jobs?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`;
+    let fetchUrl = `/jobs?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`;
 
     // Append the status filter to the backend API call if it exists
     if (status) {
         fetchUrl += `&status=${status}`;
     }
 
-    const res = await fetch(fetchUrl, { headers, cache: 'no-store' });
+    const res = await fetchFromServer(fetchUrl);
 
-    const data = res.ok ? await res.json() : { data: [], total: 0 };
+    const data = res || { data: [], total: 0 };
 
     return (
         <JobsClient
